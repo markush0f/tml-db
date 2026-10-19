@@ -1,52 +1,39 @@
 # tml-db
 
-Ejemplo mínimo de una aplicación de terminal con OpenTUI y SolidJS.
+Maqueta estática de un espacio de trabajo SQL en terminal con OpenTUI y SolidJS. Inspirada en un explorador de bases de datos: árbol lateral y paneles de consultas, resultados y asistente LLM.
 
-## Panel de ejemplo
+## Vista previa
 
-Ejecuta `bun run start` desde una terminal interactiva.
+- **Explorador:** conexión ficticia `demo_local`, esquema `public` con ocho tablas y `users` resaltada.
+- **Consultas:** SQL de muestra con números de línea y palabras clave acentuadas.
+- **Resultados:** tres registros ficticios; correos bajo `example.com`.
+- **Asistente LLM:** mensaje y prompt visual, sin modelo conectado.
 
-- **Inicio:** contador reactivo con Solid Stores.
-- **Actividad:** últimas cinco acciones de la sesión.
-- **Ayuda:** listado de atajos.
+Todo el contenido es de ejemplo. No hay edición, navegación, filtros, scroll, ejecución SQL, conexiones, llamadas LLM ni persistencia. **Q / Ctrl+C** cierra la aplicación; las demás teclas no modifican la vista.
 
-**Tab / flechas:** cambiar sección · **Espacio / +:** incrementar · **R:** reiniciar · **Q / Ctrl+C:** salir.
+Desde 80 columnas se muestra el explorador. Entre 40 y 79 se oculta y los resultados muestran solo `id` y `name`. Por debajo de 40 columnas o 20 filas se muestra un aviso de tamaño mínimo. El diseño se adapta automáticamente al redimensionar la terminal.
 
-No conecta bases de datos ni persiste información. El contenido se adapta al ancho de la terminal y permite desplazamiento con la rueda del ratón.
+## Requisitos y comandos
 
-## Stack
-
-| Área | Tecnología |
-| --- | --- |
-| Lenguaje | TypeScript (modo estricto) |
-| Runtime | Bun |
-| Interfaz de terminal | `@opentui/core` |
-| UI reactiva | SolidJS con `@opentui/solid` |
-| Motor de renderizado | Zig, incluido en OpenTUI |
-| Estado de interfaz | Solid Stores (`solid-js/store`) |
-| Atajos de teclado | `@opentui/keymap` |
-| Resaltado de código | Tree-sitter (`web-tree-sitter`, compatible con OpenTUI) |
-| Editor SQL | Componente propio sobre OpenTUI, pendiente de implementar |
-| Formateo SQL | `sql-formatter` |
-
-SolidJS está fijado a la versión requerida por `@opentui/solid`.
-El resaltado y la gramática SQL se configurarán al implementar el editor.
-
-## Requisitos
-
-- Bun >= 1.3.14 (en Windows ARM64, >= 1.4.0).
-
-## Comandos
+Bun >= 1.3.14 (en Windows ARM64, >= 1.4.0).
 
 ```sh
-bun install          # Instalar dependencias
-bun run dev         # Ejecutar en modo watch
-bun run start       # Ejecutar el punto de entrada
+bun install
+bun run dev         # Modo watch
+bun run start       # Ejecutar en una terminal interactiva
 bun run typecheck   # Comprobar tipos
-bun test            # Probar interfaz y atajos en 80 y 40 columnas
+bun test            # Renderizado, adaptación, inmovilidad y salida
 ```
 
-El punto de entrada es `src/index.tsx` y el panel está en `src/app.tsx`.
-`tsconfig.json` configura JSX para OpenTUI y `bunfig.toml` carga el plugin de SolidJS.
+## Organización
 
-Documentación: https://opentui.com/docs
+- `src/index.tsx`: inicio y limpieza del renderer.
+- `src/app.tsx`: composición adaptable y salida.
+- `src/components/`: `DatabaseSidebar`, `QueryPanel`, `ResultsPanel`, `AssistantPanel`; componentes de presentación con props de solo lectura.
+- `src/demo-data.ts`: datos ficticios y contratos `WorkspacePreview`, `SchemaPreview`, `ResultPreview` para una integración posterior.
+- `src/theme.ts`: paleta y truncado de etiquetas.
+- `docs/workspace-preview.md`: contrato visual de desarrollo.
+
+TypeScript estricto, Bun, OpenTUI y SolidJS. `bunfig.toml` carga el plugin de SolidJS y `tsconfig.json` configura JSX para OpenTUI. Se mantienen las dependencias existentes; keymap, Tree-sitter y sql-formatter no se inicializan en esta maqueta.
+
+Documentación de OpenTUI: https://opentui.com/docs
