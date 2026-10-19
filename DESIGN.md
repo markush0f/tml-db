@@ -1,27 +1,33 @@
 # Espacio de trabajo de terminal
 
-Maqueta estática orientada a lectura, basada en el boceto del usuario. La terminal proporciona la fuente monoespaciada y el tamaño de celda. No hay animaciones, foco ni cursor editable.
+Interfaz local interactiva basada en el boceto del usuario. La terminal proporciona la fuente monoespaciada y el tamaño de celda. Sin animaciones.
 
 ## Composición
 
-Marco exterior redondeado, cabecera de una fila y pie de una fila. El cuerpo tiene una división vertical y dos horizontales; no hay tarjetas ni separadores duplicados.
+Marco exterior redondeado, cabecera y pie de una fila. La cabecera incluye `[Salir]`, accesible con el ratón. El cuerpo tiene una división vertical y dos horizontales; sin tarjetas ni separadores duplicados.
 
-Explorador de 26 columnas desde 100 columnas; de 22 entre 80 y 99. Conexión `demo_local`, filtro marcado como no disponible, recuento de ocho entidades y árbol de esquemas. La tabla `users` tiene fondo gris y marcador `>` amarillo para no depender solo del color. Otros indicadores son `v`, `>` y `-`.
+Explorador de 26 columnas desde 100 columnas; de 22 entre 80 y 99 (incluido su separador). Campo de filtro, recuento de coincidencias y árbol desplazable. Los esquemas se abren/cierran con clic; las tablas se seleccionan con clic. La tabla seleccionada usa fondo gris y marcador `>` amarillo para no depender solo del color. Filtro vacío sin coincidencias: mensaje explícito `Sin coincidencias`.
 
-A la derecha: Consultas con gutter numerado y palabras clave SQL amarillas; Resultados con columnas alineadas y tres filas ficticias; Asistente LLM con estado no conectado y prompt de texto sin interacción. Resultados recibe el 25% del cuerpo (mínimo seis filas), asistente el 15% (mínimo cuatro) y consultas el resto, aproximadamente 60% en terminales amplias. En alturas cortas los mínimos tienen prioridad.
+A la derecha: Consultas con gutter vinculado al editor y palabras clave SQL amarillas; Resultados con columnas alineadas, selección de fila y scroll; Asistente LLM con estado no conectado y editor de borrador. Los títulos de la región enfocada son amarillos. Cursor amarillo y selección gris/amarilla.
+
+## Redimensionado
+
+Tres separadores de una celda, amarillos al apuntarlos o arrastrarlos. La línea vertical modifica el ancho del explorador (mínimo 18 columnas incluido el separador), dejando al menos 36 para el área principal. La línea sobre Resultados redistribuye altura entre consultas y tabla. La línea inferior redistribuye resultados/asistente sin mover la división superior.
+
+Mínimos: Consultas cuatro filas, Resultados cinco y Asistente tres, sin contar los separadores. Tamaños iniciales aproximados: 60/25/15; los mínimos tienen prioridad. Captura de ratón durante el arrastre, incluso al salir del separador, sin seleccionar texto accidentalmente. Soltar el botón, Escape o redimensionar la terminal termina el arrastre. Los tamaños se limitan al espacio disponible; los preferidos se recuperan al volver a ampliar la terminal.
 
 ## Colores
 
-Tokens en `src/theme.ts`: fondo `#000000`, superficie `#111111`, selección `#292929`, texto `#f5f5f5`, secundario `#b8b8b8`, bordes `#777777` y acento `#ffdf00`. Amarillo reservado para identidad, selección y palabras clave; sin brillos ni gradientes.
+Tokens en `src/theme.ts`: fondo `#000000`, superficie `#111111`, selección `#292929`, texto `#f5f5f5`, secundario `#b8b8b8`, bordes `#777777`, acento `#ffdf00`. Amarillo para identidad, foco, selección, palabras clave y separadores activos. Sin brillos ni gradientes.
 
 ## Adaptación
 
-De 40 a 79 columnas se oculta el explorador, la cabecera muestra `demo_local · DEMO` y la tabla conserva `id` y `name`. Por debajo de 40 columnas o 20 filas se muestra `Terminal pequeña`, `Mínimo: 40×20` y salida con Q/Ctrl+C.
+De 40 a 79 columnas se oculta el explorador y la cabecera muestra `demo_local · DEMO`. La tabla omite email cuando su panel tiene menos de 56 columnas, también al ampliar mucho el explorador. Por debajo de 40 columnas o 20 filas se muestra `Terminal pequeña`, `Mínimo: 40×20` y salida con Ctrl+C o Salir. Los editores permanecen montados y conservan texto/historial, aunque no reciben entrada mientras están ocultos.
 
-SQL y filas no se envuelven. Etiquetas largas se truncan con puntos suspensivos; el contenido se recorta al panel sin desplazar divisores. Sin scroll ni redimensionado manual. El pie identifica los datos ficticios y la ausencia de conexión.
+SQL no se envuelve; admite desplazamiento vertical y horizontal mediante rueda compatible. El borrador LLM sí se envuelve. Árbol y resultados tienen rueda y barras de desplazamiento nativas. Etiquetas largas se truncan con puntos suspensivos. Sin persistencia de ajustes.
 
-## Comportamiento y evidencia
+## Teclado y alcance
 
-Únicas teclas activas: Q y Ctrl+C. Tab, flechas, Espacio, R y escritura no alteran la vista. Los datos son de demostración y no representan resultados ejecutados ni respuestas de un modelo.
+Ctrl+C o clic en Salir cierra la aplicación; Q se escribe normalmente. Tab/Shift+Tab recorre consultas, resultados, asistente, filtro y árbol (los dos últimos solo si son visibles). Escape finaliza un arrastre y vuelve a consultas. Ctrl+Z deshace; Ctrl+Y/Ctrl+Shift+Z rehace. Enter añade líneas; Tab cambia foco.
 
-Pruebas de renderer a 120×40, 80×24, 40×24, 30×16 y mínimo 40×20; comprueban contenido, alineación de tabla, límites, teclas inertes, salida y redimensionado de ida y vuelta. Contrato de superficie: `docs/workspace-preview.md`.
+Los resultados siguen siendo ficticios: editar SQL o seleccionar tablas no ejecuta consultas. El borrador LLM no se envía. Pruebas de renderer cubren edición, selección, ratón, scrollbars, foco, límites de arrastre, cancelación, redimensionado y salida. Contrato de superficie: `docs/workspace-preview.md`.

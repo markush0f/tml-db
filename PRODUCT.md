@@ -8,13 +8,15 @@ Terminal (TUI), no navegador ni aplicación móvil. La plataforma TUI no está c
 
 ## Product Purpose
 
-Preparar el diseño de un espacio de trabajo SQL con explorador de tablas, consultas, resultados y asistente LLM, usando OpenTUI y SolidJS.
+Preparar un espacio de trabajo SQL con explorador de tablas, editor de consultas, resultados y asistente LLM, usando OpenTUI y SolidJS.
 
 ## Capabilities and Constraints
 
-Maqueta estática con datos ficticios: ocho tablas en `public`, una consulta de muestra y tres registros. Solo Q/Ctrl+C tiene comportamiento; no hay navegación, edición, filtros, scroll, conexión de base de datos, ejecución SQL, modelo LLM ni persistencia. Componentes con props de solo lectura preparados para integración posterior, que queda fuera del alcance actual.
+Editor SQL local multilínea con cursor, selección, pegado y deshacer. Ratón para enfocar campos, filtrar tablas, abrir/cerrar esquemas, seleccionar tablas/filas, desplazar contenido y arrastrar separadores. Borrador local en el asistente, sin envío.
 
-Adaptación automática: explorador desde 80 columnas, vista compacta desde 40 y aviso por debajo de 40×20. Español en la interfaz e identificadores SQL en inglés.
+Datos ficticios: ocho tablas en `public` y tres registros de ejemplo. No hay conexión de base de datos, ejecución SQL, modelo LLM ni persistencia. Editar consultas o seleccionar otra tabla no altera los resultados. Estado temporal conservado al redimensionar, descartado al salir.
+
+Adaptación automática: explorador desde 80 columnas, vista compacta desde 40 y aviso por debajo de 40×20. Español en la interfaz e identificadores SQL en inglés. Salida con Ctrl+C o clic en Salir; Q es texto. Tab/Shift+Tab cambia el foco.
 
 ## Brand Commitments
 
@@ -22,4 +24,4 @@ Paleta principalmente negra y amarilla indicada por el usuario. Composición bas
 
 ## Stack
 
-TypeScript estricto, Bun, OpenTUI y SolidJS. Sin nuevas dependencias para la maqueta.
+TypeScript estricto, Bun, OpenTUI y SolidJS. Ratón, editores, selección y scroll nativos de OpenTUI. Sin dependencias nuevas.
