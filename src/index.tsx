@@ -2,7 +2,7 @@ import { createCliRenderer } from "@opentui/core";
 import { render } from "@opentui/solid";
 import { App } from "./app";
 
-const renderer = await createCliRenderer({ exitOnCtrlC: true });
+const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: true, enableMouseMovement: true });
 try {
   await render(() => <App />, renderer);
 } catch (error) {
