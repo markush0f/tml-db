@@ -12,11 +12,11 @@ Preparar un espacio de trabajo SQL con explorador de tablas, editor de consultas
 
 ## Capabilities and Constraints
 
-Editor SQL local multilínea con cursor, selección, pegado y deshacer. Ratón para enfocar campos, filtrar tablas, abrir/cerrar esquemas, seleccionar tablas/filas, desplazar contenido y arrastrar separadores. Borrador local en el asistente, sin envío.
+Editor SQL multilínea con cursor, selección, pegado y deshacer. Ratón para enfocar campos, ejecutar consultas, seleccionar filas, desplazar contenido y arrastrar separadores. Borrador local en el asistente, sin envío.
 
-Datos ficticios: ocho tablas en `public` y tres registros de ejemplo. No hay conexión de base de datos, ejecución SQL, modelo LLM ni persistencia. Editar consultas o seleccionar otra tabla no altera los resultados. Estado temporal conservado al redimensionar, descartado al salir.
+Conexión automática a DBHub local, sin ejecutar SQL al abrir. Catálogo de conexiones nombradas en `config/connections.toml` con una conexión activa; credenciales referenciadas por variable de entorno o `.env`, nunca guardadas en TOML. Cambio de base editando `active` y reiniciando, sin selector en la interfaz. Ctrl+Enter o Ejecutar envía el buffer completo, con solo lectura y hasta 200 filas por conjunto. Resultados reales con columnas dinámicas, múltiples conjuntos, duración y aviso de truncamiento. Reconexión explícita tras timeout o pérdida de transporte; errores seguros sin credenciales. El explorador real está pendiente y no muestra tablas ficticias. No hay modelo LLM ni persistencia. Estado temporal conservado al redimensionar, descartado al salir; cerrar termina el proceso DBHub.
 
-Adaptación automática: explorador desde 80 columnas, vista compacta desde 40 y aviso por debajo de 40×20. Español en la interfaz e identificadores SQL en inglés. Salida con Ctrl+C o clic en Salir; Q es texto. Tab/Shift+Tab cambia el foco.
+Adaptación automática: explorador desde 80 columnas, vista compacta desde 40 y aviso por debajo de 40×20. Español en la interfaz e identificadores SQL en inglés. Salida con Ctrl+C o clic en Salir; Q es texto. Tab/Shift+Tab recorre editor, resultados y asistente. Enter añade líneas. Ejecución deshabilitada bajo 40×20, mientras conecta/ejecuta o con SQL vacío.
 
 ## Brand Commitments
 

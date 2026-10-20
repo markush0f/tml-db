@@ -1,44 +1,65 @@
 # tml-db
 
-Espacio de trabajo SQL en terminal con OpenTUI y SolidJS. Explorador de tablas, editor de consultas, resultados y asistente LLM. La edición y el ratón funcionan localmente; los datos siguen siendo ficticios y no hay servicios conectados.
+Una aplicación Bun con dos módulos y una configuración compartida:
 
-## Uso
+```text
+src/
+  tui/              Interfaz de terminal OpenTUI + SolidJS
+  mcp/              Cliente MCP y lanzamiento del DBHub local
+config/dbhub.toml   Política interna de DBHub, de solo lectura
+config/connections.toml  Conexiones locales y conexión activa (excluido de Git)
+config/connections.example.toml  Plantilla del catálogo
+.env.example       Ejemplo de conexión (copiar a .env)
+data/dbhub/        SQLite de prueba, excluida de Git
+docs/              Guías de la TUI y de MCP
+package.json       Dependencias y comandos de toda la aplicación
+bun.lock           Versiones fijadas
+```
 
-- **Consultas:** editor multilínea con números de línea, acentos de palabras clave, selección, pegado y deshacer. Tiene el foco al iniciar. Haz clic para colocar el cursor, arrastra para seleccionar y usa la rueda para desplazarte.
-- **Explorador:** haz clic en un esquema para abrirlo/cerrarlo o en una tabla para resaltarla. El campo superior filtra tablas por nombre. La rueda y la barra de desplazamiento funcionan cuando el árbol excede su espacio.
-- **Tamaños:** arrastra la línea vertical para cambiar el ancho del explorador. Arrastra la línea sobre Resultados para ampliar/reducir la tabla, o la línea sobre el asistente para redistribuir su espacio. El separador se vuelve amarillo al apuntarlo. Los mínimos evitan ocultar los paneles.
-- **Resultados:** clic para enfocar/seleccionar una fila; rueda o barra para desplazarte. Siguen siendo tres registros de ejemplo, no resultados del SQL editado.
-- **Asistente:** clic para escribir un borrador local. No envía mensajes ni se conecta a un modelo.
-- **Salir:** clic en `[Salir]` o **Ctrl+C**. `Q` es texto normal y ya no cierra la aplicación.
+## Requisitos
 
-**Tab / Shift+Tab** cambia de panel/campo. **Escape** termina un arrastre y vuelve a Consultas. **Ctrl+Z** deshace y **Ctrl+Y / Ctrl+Shift+Z** rehace en los editores. Enter añade una línea; Tab cambia el foco (para sangrar, usa espacios).
+- Bun >= 1.3.14 (en Windows ARM64, >= 1.4.0).
+- Node.js >= 22.5.0 para DBHub y su driver SQLite nativo. Disponible como `node`.
+- No se necesita Docker ni una base de datos externa para probar la conexión.
 
-El texto y los ajustes se conservan al redimensionar la terminal, pero son temporales y se pierden al salir. Desde 80 columnas se muestra el explorador; entre 40 y 79 se oculta. La tabla muestra `id` y `name` si no hay ancho para email. Por debajo de 40 columnas o 20 filas se muestra un aviso, sin perder los buffers del editor.
-
-El ratón se activa explícitamente; se necesita una terminal compatible con eventos de ratón. Sin ratón se puede editar y cambiar el foco con el teclado.
-
-## Requisitos y comandos
-
-Bun >= 1.3.14 (en Windows ARM64, >= 1.4.0).
+## Comandos desde la raíz
 
 ```sh
 bun install
-bun run dev         # Modo watch
-bun run start       # Ejecutar en una terminal interactiva
-bun run typecheck   # Comprobar tipos
-bun test            # Edición, ratón, separadores, adaptación y salida
+bun run dev          # TUI en modo watch
+bun run start        # TUI
+bun run mcp:check    # DBHub local: conexión, herramientas y SELECT 1
+bun run mcp:start    # Servidor MCP independiente por stdio
+bun run typecheck   # Tipos de toda la aplicación
+bun test            # Todas las pruebas (también bun run test)
+bun run test:tui    # Solo interfaz
+bun run test:mcp    # Solo integración MCP
 ```
 
-## Organización
+`mcp:check` inicia y cierra su propio proceso DBHub; no requiere ejecutar `mcp:start` antes. Cada conexión por stdio tiene su propio servidor y no abre puertos.
 
-- `src/index.tsx`: inicio, ratón y limpieza del renderer.
-- `src/app.tsx`: estado local, foco, composición y captura de arrastre.
-- `src/components/`: explorador, editor SQL, resultados, borrador LLM y separadores reutilizables.
-- `src/workspace-layout.ts`: cálculo de tamaños y límites.
-- `src/demo-data.ts`: datos ficticios y contratos de datos de solo lectura.
-- `src/theme.ts`: paleta y truncado de etiquetas.
-- `docs/workspace-preview.md`: contrato de superficie.
+Las conexiones se guardan en **`config/connections.toml`**, un fichero local excluido de Git. Si no lo tienes, copia `config/connections.example.toml`. Permite varias conexiones y una activa:
 
-Sin conexión de base de datos, ejecución SQL, llamadas LLM ni persistencia. Sin nuevas dependencias: los editores, selección, scroll y eventos usan OpenTUI. El resaltado es local y sencillo, no un parser SQL. No se inicializan Tree-sitter, sql-formatter ni keymap.
+```toml
+active = "desarrollo"
 
-Documentación de OpenTUI: https://opentui.com/docs
+[connections.demo]
+demo = true
+
+[connections.desarrollo]
+dsn_env = "DEV_DATABASE_URL"
+
+[connections.produccion]
+dsn_env = "PROD_DATABASE_URL"
+```
+
+Las credenciales no van en el TOML: define `DEV_DATABASE_URL` y/o `PROD_DATABASE_URL` en el entorno o en `.env` (puedes copiar `.env.example`). Solo hace falta la variable de la conexión activa. Cambia `active` y reinicia la TUI para cambiar de base; no hay selector de conexiones en la interfaz todavía.
+
+Con `active = "demo"` se usa `data/dbhub/demo.sqlite`, con tres usuarios ficticios. Sin catálogo se mantiene la compatibilidad con `DBHUB_DSN` y, si no está definida, SQLite de prueba. Un catálogo inválido o una variable activa ausente dan error, sin cambiar de base silenciosamente. El acceso SQL sigue siendo de solo lectura y con límite de 200 filas.
+
+La TUI conecta con DBHub al abrir, **sin ejecutar SQL automáticamente**. Pulsa **Ctrl+Enter** o `[Ejecutar]` para enviar el buffer completo del editor y ver resultados reales. Enter normal añade líneas. Ante pérdida de conexión, `[Reconectar]` prepara una sesión nueva sin ejecutar el SQL. En terminales que no distingan Ctrl+Enter, usa el botón con el ratón.
+
+El explorador real está pendiente y no muestra tablas ficticias; el asistente sigue siendo un borrador local sin modelo. Los resultados admiten varias consultas de lectura y desplazamiento horizontal/vertical, indican duración y avisan si DBHub trunca a 200 filas. Ctrl+C o `[Salir]` cierran también el proceso DBHub.
+
+- [Interfaz, ratón y atajos](docs/tui.md)
+- [DBHub local, credenciales y uso del cliente](docs/mcp.md)

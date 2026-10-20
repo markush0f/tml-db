@@ -1,25 +1,26 @@
-# Workspace preview — contrato de superficie
+# Workspace — contrato de superficie
 
-Modo: Operate. Espacio SQL local preparado para integración posterior: exploración, edición, resultados ilustrativos y borrador de ayuda. Ninguna acción implica consultas ejecutadas ni respuestas de un modelo real.
+Modo: Operate. Espacio SQL de terminal con edición y resultados reales mediante DBHub local. El explorador de esquema está pendiente; el asistente conserva un borrador sin conexión a un modelo.
 
-## Direction contract
+## Dirección
 
-**THESIS:** conservar el boceto: árbol estrecho a la izquierda y tres regiones apiladas a la derecha. La interacción debe servir a esa composición, sin dashboard de tarjetas ni nuevos servicios.
+Conservar el boceto: lateral estrecho y tres regiones apiladas a la derecha. Negro y amarillo existentes, celdas de terminal, gris para jerarquía, marco redondeado y separadores únicos. Foco y arrastre amarillos. Sin tarjetas, nuevas fuentes, imágenes ni animación.
 
-**OWN-WORLD:** negro y amarillo existentes, celdas de terminal, gris para jerarquía, marco redondeado y separadores únicos. Foco y arrastre amarillos. Sin nuevas fuentes, imágenes ni animación.
+Cabecera con estado seguro DBHub local y Salir siempre visible; pie de ayuda. Lateral inicial de 26/22 columnas y texto honesto `Explorador pendiente de conectar`, sin datos falsos. Editor sobre resultados y asistente; mínimos de cuatro/cinco/tres filas y separadores arrastrables. Vista compacta sin lateral; aviso bajo 40×20, donde no se permite ejecutar.
 
-**STORY:** filtrar/seleccionar tablas, editar SQL y ajustar el espacio con el ratón; reconocer que resultados y asistente no están conectados. El usuario puede salir con el ratón sin sacrificar Q como carácter.
+## Flujo y estados
 
-**FIRST VIEWPORT:** cabecera con Salir y pie de ayuda; explorador inicial de 26/22 columnas; editor sobre resultados y asistente. Separadores arrastrables, mínimos de cuatro/cinco/tres filas. Compacto sin explorador y estado mínimo bajo 40×20.
-
-**FORM:** composición fijada por la referencia del usuario, ampliada con edición y ratón por petición expresa. Edición nativa OpenTUI con números de línea vinculados, selección y scroll. Captura temporal durante arrastre; el redimensionado conserva los buffers.
-
-**FINISH:** verificar frames amplios/compactos, edición, cursor y selección, foco, ratón, scrollbars, límites y cancelación de arrastre, redimensionado y salida. Tipos, pruebas y documentación al día. No hay imágenes raster distribuidas.
+1. Conectar al montar, sin bloquear edición ni ejecutar consultas. SQL inicial sugerido: `SELECT * FROM users LIMIT 200;`.
+2. Ejecutar el buffer completo con Ctrl+Enter o clic en Ejecutar. Enter normal añade líneas. Ignorar duplicados, texto vacío y activaciones mientras conecta/ejecuta.
+3. Limpiar filas y selección anteriores; mostrar Ejecutando. Capturar el SQL al lanzar, permitiendo seguir editando.
+4. Mostrar resultados reales, duración, filas recibidas y todos los conjuntos. Columnas dinámicas de 4–40 celdas, controles escapados, NULL y JSON. Encabezados y filas comparten scroll horizontal/vertical. Cero filas y cero conjuntos tienen mensajes propios.
+5. Solo lectura y hasta 200 filas por conjunto; aviso solo ante `truncated: true`. Errores SQL permiten corregir y reintentar. Timeout de solicitud de 35 segundos o pérdida de transporte cierran la sesión y ofrecen Reconectar, sin ejecución automática ni promesa de cancelación SQL.
+6. Salir cierra DBHub y el renderer. Resoluciones tardías no actualizan la interfaz y las conexiones adquiridas después de salir se cierran.
 
 ## Estado y límites
 
-`demoWorkspace` sigue proporcionando los datos ficticios. El contenedor mantiene en memoria consultas, borrador, filtro, esquemas cerrados, tabla/fila seleccionadas, foco y tamaños preferidos. Los componentes reciben datos y callbacks de interfaz; no conocen servicios ni conexiones.
+`src/mcp/query.ts` encapsula MCP y expone QuerySession/QueryResult/QueryTable; el controlador de `src/tui/query-session.ts` separa estados de conexión y ejecución. Componentes reciben datos y callbacks, sin diagnósticos crudos, DSN ni stderr. Las pruebas de renderer inyectan sesiones falsas sin leer la configuración del usuario.
 
-`workspaceLayout` aplica mínimos y conserva el ancho útil principal. El estado de arrastre contiene las coordenadas/tamaños iniciales y se descarta al soltar, pulsar Escape o redimensionar. Árbol, tabla y editores usan los mecanismos nativos de OpenTUI.
+`workspaceLayout` conserva mínimos y ajustes preferidos. El arrastre se descarta al soltar, pulsar Escape o redimensionar. Redimensionar no reconecta ni ejecuta SQL y conserva buffers y resultados. Tab recorre editor, resultados y asistente. Escape vuelve al editor, no cancela consultas. Q es texto.
 
-No hay conexión, ejecución SQL, envío al LLM, almacenamiento ni variables de entorno nuevas. Cualquier integración futura requerirá una petición independiente.
+Sin descubrimiento de esquema, nuevas variables de entorno, dependencias, historial persistente, escrituras ni envío al LLM. Verificar frames amplios/compactos, estados reales, edición, selección, scrollbars, ratón, separadores y cierre; tipos y suites de TUI/MCP deben pasar.
