@@ -1,0 +1,16 @@
+# Opt-in policy selected only for connections with write_enabled = true.
+[[sources]]
+id = "local"
+dsn = "${DBHUB_DSN}"
+connection_timeout = 10
+query_timeout = 30
+
+[[tools]]
+name = "execute_sql"
+source = "local"
+readonly = false
+max_rows = 200
+
+[[tools]]
+name = "search_objects"
+source = "local"

@@ -2,6 +2,8 @@
 # active selects the startup connection. Ctrl+K switches connections for this session.
 # Use + Nueva conexión in the TUI to store full URLs in the OS keychain.
 # The TUI writes secret_ref identifiers here, never credentials.
+# Read-only by default. Optional per connection: write_enabled = true.
+# Ctrl+K → Ctrl+W enables writing with confirmation; requires database privileges.
 active = "demo"
 
 [connections.demo]

@@ -56,7 +56,10 @@ export async function resolvedConnectionsPath(filename?: string): Promise<string
   );
 }
 
-export async function resolveDatabaseDsn(options: DbHubOptions = {}): Promise<string> {
+export async function resolveDatabaseConfig(
+  options: DbHubOptions = {},
+): Promise<{ dsn: string; writeEnabled: boolean }> {
+  let writeEnabled = false;
   // An explicit DSN is independent of local files (also isolates integration tests).
   let dsn = options.dsn;
   if (dsn !== undefined && !dsn.trim()) throw new Error("La DSN explícita no puede estar vacía.");
@@ -78,6 +81,7 @@ export async function resolveDatabaseDsn(options: DbHubOptions = {}): Promise<st
       throw new Error("La conexión seleccionada ya no existe.");
     const selected = catalog && { ...catalog, active: options.connectionName ?? catalog.active };
     const entry = selected?.connections[selected.active];
+    writeEnabled = entry?.writeEnabled === true;
     dsn = entry?.secretRef
       ? await credentialDsn(entry.secretRef)
       : selected
@@ -88,5 +92,9 @@ export async function resolveDatabaseDsn(options: DbHubOptions = {}): Promise<st
       dsn = sqliteDsn(defaultDemoPath);
     }
   }
-  return dsn;
+  return { dsn, writeEnabled };
+}
+
+export async function resolveDatabaseDsn(options: DbHubOptions = {}): Promise<string> {
+  return (await resolveDatabaseConfig(options)).dsn;
 }

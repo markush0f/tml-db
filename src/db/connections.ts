@@ -10,6 +10,7 @@ export interface ConnectionDefinition {
   readonly dsnEnv?: string;
   readonly secretRef?: string;
   readonly demo: boolean;
+  readonly writeEnabled?: boolean;
 }
 
 export interface ConnectionCatalog {
@@ -44,8 +45,13 @@ export function parseConnectionCatalog(text: string): ConnectionCatalog {
     if (
       !/^[a-zA-Z0-9_-]+$/.test(name) ||
       !object(entry) ||
-      Object.keys(entry).some((key) => key !== "dsn_env" && key !== "demo" && key !== "secret_ref")
+      Object.keys(entry).some(
+        (key) =>
+          key !== "dsn_env" && key !== "demo" && key !== "secret_ref" && key !== "write_enabled",
+      )
     )
+      throw invalid();
+    if (entry.write_enabled !== undefined && typeof entry.write_enabled !== "boolean")
       throw invalid();
     if (entry.demo === true && entry.dsn_env === undefined && entry.secret_ref === undefined)
       connections[name] = { demo: true };
@@ -64,6 +70,8 @@ export function parseConnectionCatalog(text: string): ConnectionCatalog {
     ) {
       connections[name] = { demo: false, dsnEnv: entry.dsn_env };
     } else throw invalid();
+    if (entry.write_enabled !== undefined)
+      connections[name] = { ...connections[name]!, writeEnabled: entry.write_enabled as boolean };
   }
   if (!Object.hasOwn(connections, value.active)) throw invalid();
   return { active: value.active, connections };

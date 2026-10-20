@@ -27,5 +27,11 @@ export async function connectDbHub(options: DbHubOptions = {}) {
       "No se pudo conectar a DBHub local. Comprueba Node.js >= 22.5.0, bun install, config/connections.toml y .env en la raíz del proyecto.",
     );
   }
-  return { client, pid: transport.pid, close, [Symbol.asyncDispose]: close };
+  return {
+    client,
+    writeEnabled: launch.writeEnabled,
+    pid: transport.pid,
+    close,
+    [Symbol.asyncDispose]: close,
+  };
 }

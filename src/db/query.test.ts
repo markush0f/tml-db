@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
@@ -104,6 +104,53 @@ test("timeout y pérdida de transporte cierran una sola vez sin filtrar secretos
     await expect(session.execute("SELECT 1")).rejects.toThrow(new QueryError("connection"));
   }
 });
+test("escritura opt-in persistida: DDL, INSERT, UPDATE, DELETE y retorno a solo lectura", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "tml-write-"));
+  const path = join(directory, "test.sqlite");
+  const catalog = join(directory, "connections.toml");
+  const { createConnectionManager } = await import("./connection-manager");
+  const { systemCredentials } = await import("./credentials");
+  const previous = systemCredentials.get;
+  let session;
+  try {
+    await initializeDemoDatabase(path);
+    await writeFile(catalog, 'active="db"\n[connections.db]\nsecret_ref="test-write"\n');
+    systemCredentials.get = async () => sqliteDsn(path);
+    const manager = createConnectionManager({ filename: catalog });
+    await manager.setWriteEnabled!("db", true);
+    session = await connectQuerySession({ connectionsFile: catalog });
+    expect(session.writeEnabled).toBe(true);
+    await expect(session.execute("INSERT INTO missing_table VALUES (1)")).rejects.toThrow(
+      "no such table: missing_table",
+    );
+    await session.execute("CREATE TABLE writable (id INTEGER PRIMARY KEY, name TEXT)");
+    expect(
+      (await session.execute("INSERT INTO writable VALUES (1, 'before')")).statements[0]!.count,
+    ).toBe(1);
+    expect(
+      (await session.execute("UPDATE writable SET name='after' WHERE id=1")).statements[0]!.count,
+    ).toBe(1);
+    expect((await session.execute("SELECT name FROM writable")).statements[0]!.rows).toEqual([
+      ["after"],
+    ]);
+    expect((await session.execute("DELETE FROM writable WHERE id=1")).statements[0]!.count).toBe(1);
+    await session.close();
+    await manager.setWriteEnabled!("db", false);
+    session = await connectQuerySession({ connectionsFile: catalog });
+    expect(session.writeEnabled).toBe(false);
+    await expect(session.execute("DROP TABLE writable")).rejects.toMatchObject({
+      code: "readonly",
+    });
+    expect(
+      (await session.execute("SELECT COUNT(*) AS n FROM writable")).statements[0]!.rows,
+    ).toEqual([[0]]);
+  } finally {
+    systemCredentials.get = previous;
+    await session?.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+}, 20_000);
+
 test("adaptador con SQLite real: lecturas, varios conjuntos, vacío, límite y rechazo de escritura", async () => {
   const directory = await mkdtemp(join(tmpdir(), "tml-query-"));
   const path = join(directory, "test.sqlite");

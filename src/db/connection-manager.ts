@@ -12,6 +12,7 @@ import { systemCredentials, type CredentialStore } from "./credentials";
 export interface ConnectionSummary {
   name: string;
   kind: "llavero" | "entorno" | "demo";
+  writeEnabled?: boolean;
 }
 export interface ConnectionList {
   active: string;
@@ -21,6 +22,7 @@ export interface ConnectionManager {
   list(): Promise<ConnectionList>;
   save(name: string, dsn: string, replace?: boolean): Promise<void>;
   remove(name: string): Promise<void>;
+  setWriteEnabled?(name: string, enabled: boolean): Promise<void>;
 }
 function serialize(catalog: ConnectionCatalog): string {
   const lines = [`active = ${JSON.stringify(catalog.active)}`, ""];
@@ -32,6 +34,7 @@ function serialize(catalog: ConnectionCatalog): string {
         : entry.secretRef
           ? `secret_ref = ${JSON.stringify(entry.secretRef)}`
           : `dsn_env = ${JSON.stringify(entry.dsnEnv)}`,
+      ...(entry.writeEnabled !== undefined ? [`write_enabled = ${entry.writeEnabled}`] : []),
       "",
     );
   }
@@ -104,6 +107,7 @@ export function createConnectionManager(
         connections: Object.entries(catalog.connections).map(([name, entry]) => ({
           name,
           kind: entry.demo ? "demo" : entry.secretRef ? "llavero" : "entorno",
+          writeEnabled: entry.writeEnabled === true,
         })),
       };
     },
@@ -129,7 +133,14 @@ export function createConnectionManager(
         try {
           await persist({
             ...catalog,
-            connections: { ...catalog.connections, [name]: { demo: false, secretRef: ref } },
+            connections: {
+              ...catalog.connections,
+              [name]: {
+                demo: false,
+                secretRef: ref,
+                ...(old?.writeEnabled !== undefined ? { writeEnabled: old.writeEnabled } : {}),
+              },
+            },
           });
         } catch (error) {
           try {
@@ -155,6 +166,16 @@ export function createConnectionManager(
             );
           }
         }
+      });
+    },
+    async setWriteEnabled(name, enabled) {
+      await mutate(async (catalog, persist) => {
+        const entry = catalog.connections[name];
+        if (!entry) throw new Error("La conexión ya no existe.");
+        await persist({
+          ...catalog,
+          connections: { ...catalog.connections, [name]: { ...entry, writeEnabled: enabled } },
+        });
       });
     },
     async remove(name) {

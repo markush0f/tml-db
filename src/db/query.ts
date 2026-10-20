@@ -23,6 +23,7 @@ export interface TableCatalog {
   readonly truncated: boolean;
 }
 export interface QuerySession {
+  readonly writeEnabled?: boolean;
   /** Optional for custom sessions without schema discovery. DBHub sessions always provide it. */
   listTables?(): Promise<TableCatalog>;
   execute(sql: string): Promise<QueryResult>;
@@ -211,7 +212,7 @@ export async function connectQuerySession(options: DbHubOptions = {}): Promise<Q
     connection = await connectDbHub(options);
     if (!(await connection.client.listTools()).tools.some((tool) => tool.name === "execute_sql"))
       throw new QueryError("protocol");
-    return createQuerySession(connection);
+    return { ...createQuerySession(connection), writeEnabled: connection.writeEnabled };
   } catch (error) {
     await connection?.close().catch(() => {});
     throw error instanceof QueryError ? error : new QueryError("connection");

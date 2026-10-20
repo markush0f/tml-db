@@ -42,8 +42,8 @@ test("registro, sustitución y borrado guardan únicamente referencias y elimina
   const first = parseConnectionCatalog(text).connections.dev!.secretRef!;
   expect(values.get(first)).toBe(dsn);
   expect((await manager.list()).connections).toEqual([
-    { name: "demo", kind: "demo" },
-    { name: "dev", kind: "llavero" },
+    { name: "demo", kind: "demo", writeEnabled: false },
+    { name: "dev", kind: "llavero", writeEnabled: false },
   ]);
   await expect(manager.save("dev", dsn)).rejects.toThrow("Ya existe");
   await manager.save("dev", "postgres://user:new-secret@localhost/db", true);
@@ -54,6 +54,30 @@ test("registro, sustitución y borrado guardan únicamente referencias y elimina
   expect((await manager.list()).connections.length).toBe(1);
   await expect(manager.remove("demo")).rejects.toThrow("última");
 });
+test("modo por conexión persiste, no afecta a otras y sobrevive a sustituir URL", async () => {
+  const { manager, filename } = await setup();
+  await manager.save("dev", "postgres://localhost/db");
+  await manager.setWriteEnabled!("dev", true);
+  let catalog = parseConnectionCatalog(await readFile(filename, "utf8"));
+  expect(catalog.connections.dev!.writeEnabled).toBe(true);
+  expect(catalog.connections.demo!.writeEnabled).toBeUndefined();
+  await manager.save("dev", "postgres://localhost/other", true);
+  catalog = parseConnectionCatalog(await readFile(filename, "utf8"));
+  expect(catalog.connections.dev!.writeEnabled).toBe(true);
+  await manager.setWriteEnabled!("dev", false);
+  expect((await manager.list()).connections.find((e) => e.name === "dev")!.writeEnabled).toBe(
+    false,
+  );
+  await expect(manager.setWriteEnabled!("missing", true)).rejects.toThrow("ya no existe");
+  for (const value of ['"true"', "1", "[]"]) {
+    expect(() =>
+      parseConnectionCatalog(
+        `active="demo"\n[connections.demo]\ndemo=true\nwrite_enabled=${value}`,
+      ),
+    ).toThrow("no válida");
+  }
+});
+
 test("rechaza nombres, DSN y configuraciones ambiguas sin mostrar credenciales", async () => {
   const { manager, filename } = await setup();
   await expect(manager.save("bad.name", "postgres://private")).rejects.toThrow("Nombre");
