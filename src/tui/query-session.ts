@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
-import { QueryError, type QueryResult, type QuerySession } from "../mcp";
+import { QueryError, type QueryResult, type QuerySession, type TableCatalog } from "../db";
 
-export type SessionFactory = () => Promise<QuerySession>;
+export type SessionFactory = (name?: string) => Promise<QuerySession>;
 export interface QueryState {
   connection: "connecting" | "ready" | "error" | "closed";
   query: "idle" | "running" | "success" | "error";
@@ -10,47 +10,138 @@ export interface QueryState {
   executedSql: string | null;
 }
 export function createQueryController(connect: SessionFactory) {
-  const [state, setState] = createSignal<QueryState>({ connection: "connecting", query: "idle", result: null, message: "", executedSql: null });
+  const [state, setState] = createSignal<QueryState>({
+    connection: "connecting",
+    query: "idle",
+    result: null,
+    message: "",
+    executedSql: null,
+  });
+  const emptyTables = { status: "idle" as const, catalog: null };
+  const [tables, setTables] = createSignal<{
+    status: "idle" | "loading" | "ready" | "error";
+    catalog: TableCatalog | null;
+  }>(emptyTables);
   let session: QuerySession | undefined;
+  async function refreshTables() {
+    const current = session;
+    if (disposed || !current || tables().status === "loading" || state().query === "running")
+      return;
+    if (!current.listTables) {
+      setTables({ status: "error", catalog: null });
+      return;
+    }
+    setTables({ status: "loading", catalog: null });
+    try {
+      const catalog = await current.listTables();
+      if (!disposed && session === current) setTables({ status: "ready", catalog });
+    } catch (error) {
+      if (disposed || session !== current) return;
+      setTables({ status: "error", catalog: null });
+      if (
+        error instanceof QueryError &&
+        (error.code === "connection" || error.code === "timeout")
+      ) {
+        session = undefined;
+        setState((s) => ({
+          ...s,
+          connection: "error",
+          query: "error",
+          result: null,
+          message: error.message,
+        }));
+        await current.close().catch(() => {});
+      }
+    }
+  }
   let pending: Promise<void> | undefined;
   let disposed = false;
   let closing: Promise<void> | undefined;
-  async function reconnect() {
-    if (disposed || pending || session) return;
-    setState({ connection: "connecting", query: "idle", result: null, message: "", executedSql: null });
+  let selectedName: string | undefined;
+  async function reconnect(name = selectedName, replace = false) {
+    if (disposed || pending || state().query === "running" || (session && !replace)) return;
+    selectedName = name;
+    const previous = session;
+    session = undefined;
+    setTables(emptyTables);
+    setState({
+      connection: "connecting",
+      query: "idle",
+      result: null,
+      message: "",
+      executedSql: null,
+    });
     pending = (async () => {
       try {
-        const acquired = await connect();
-        if (disposed) { await acquired.close().catch(() => {}); return; }
+        if (previous) {
+          await previous.close().catch(() => {});
+          if (disposed) return;
+        }
+        const acquired = await connect(selectedName);
+        if (disposed) {
+          await acquired.close().catch(() => {});
+          return;
+        }
         session = acquired;
         setState((s) => ({ ...s, connection: "ready" }));
+        void refreshTables();
       } catch {
-        if (!disposed) setState((s) => ({ ...s, connection: "error", message: new QueryError("connection").message }));
+        if (!disposed)
+          setState((s) => ({
+            ...s,
+            connection: "error",
+            message: new QueryError("connection").message,
+          }));
       }
     })();
-    try { await pending; } finally { pending = undefined; }
+    try {
+      await pending;
+    } finally {
+      pending = undefined;
+    }
   }
   async function execute(sql: string) {
-    if (disposed || !session || state().connection !== "ready" || state().query === "running" || !sql.trim()) return;
+    if (
+      disposed ||
+      !session ||
+      state().connection !== "ready" ||
+      state().query === "running" ||
+      !sql.trim()
+    )
+      return;
     const current = session;
-    setState({ connection: "ready", query: "running", result: null, message: "", executedSql: sql });
+    setState({
+      connection: "ready",
+      query: "running",
+      result: null,
+      message: "",
+      executedSql: sql,
+    });
     try {
       const result = await current.execute(sql);
-      if (!disposed) setState((s) => ({ ...s, query: "success", result }));
+      if (!disposed && session === current) setState((s) => ({ ...s, query: "success", result }));
     } catch (error) {
-      if (disposed) return;
+      if (disposed || session !== current) return;
       const safe = error instanceof QueryError ? error : new QueryError("connection");
       const disconnected = safe.code === "connection" || safe.code === "timeout";
       if (disconnected) {
         session = undefined;
+        setTables(emptyTables);
         await current.close().catch(() => {});
       }
-      if (!disposed) setState((s) => ({ ...s, connection: disconnected ? "error" : "ready", query: "error", message: safe.message }));
+      if (!disposed)
+        setState((s) => ({
+          ...s,
+          connection: disconnected ? "error" : "ready",
+          query: "error",
+          message: safe.message,
+        }));
     }
   }
   function close(): Promise<void> {
     if (closing) return closing;
     disposed = true;
+    setTables(emptyTables);
     setState((s) => ({ ...s, connection: "closed" }));
     const current = session;
     session = undefined;
@@ -60,5 +151,13 @@ export function createQueryController(connect: SessionFactory) {
     })();
     return closing;
   }
-  return { state, reconnect, execute, close };
+  return {
+    state,
+    tables,
+    refreshTables,
+    reconnect,
+    switchConnection: (name: string) => reconnect(name, true),
+    execute,
+    close,
+  };
 }

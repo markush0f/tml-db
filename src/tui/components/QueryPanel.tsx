@@ -22,7 +22,9 @@ export function QueryPanel(props: Props) {
   function highlight() {
     editor.clearAllHighlights();
     editor.plainText.split("\n").forEach((line, row) => {
-      for (const match of line.matchAll(/\b(SELECT|FROM|WHERE|LIMIT|ORDER|BY|GROUP|JOIN|LEFT|RIGHT|INNER|ON|AS|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|NULL|IS|NOT|ASC|DESC|DISTINCT)\b/gi)) {
+      for (const match of line.matchAll(
+        /\b(SELECT|FROM|WHERE|LIMIT|ORDER|BY|GROUP|JOIN|LEFT|RIGHT|INNER|ON|AS|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|NULL|IS|NOT|ASC|DESC|DISTINCT)\b/gi,
+      )) {
         const start = Buffer.byteLength(line.slice(0, match.index));
         editor.addHighlight(row, { start, end: start + match[0].length, styleId: keywordStyle });
       }
@@ -31,20 +33,73 @@ export function QueryPanel(props: Props) {
   onMount(highlight);
   onCleanup(() => syntax.destroy());
   return (
-    <box id="query-panel" height={props.height} flexShrink={0} flexDirection="column" overflow="hidden" paddingLeft={1} paddingRight={1}
-      onMouseDown={(event) => { if (event.button === 0) props.onFocus(); }}>
+    <box
+      id="query-panel"
+      height={props.height}
+      flexShrink={0}
+      flexDirection="column"
+      overflow="hidden"
+      paddingLeft={1}
+      paddingRight={1}
+      onMouseDown={(event) => {
+        if (event.button === 0) props.onFocus();
+      }}
+    >
       <box height={1} flexShrink={0} flexDirection="row" justifyContent="space-between">
-        <text fg={props.focused ? theme.accent : theme.text} selectable={false}><b>Consultas</b></text>
-        <text id="execute-button" fg={props.actionDisabled ? theme.muted : theme.accent} selectable={false}
-          onMouseDown={(event) => { if (event.button === 0 && !props.actionDisabled) { event.stopPropagation(); props.onExecute(); } }}>{`[${props.actionLabel}]`}</text>
+        <text fg={props.focused ? theme.accent : theme.text} selectable={false}>
+          <b>Consultas</b>
+        </text>
+        <text
+          id="execute-button"
+          fg={props.actionDisabled ? theme.muted : theme.accent}
+          selectable={false}
+          onMouseDown={(event) => {
+            if (event.button === 0 && !props.actionDisabled) {
+              event.stopPropagation();
+              props.onExecute();
+            }
+          }}
+        >{`[${props.actionLabel}]`}</text>
       </box>
-      <line_number flexGrow={1} minHeight={0} width="100%" fg={theme.muted} bg={theme.surface} minWidth={3} paddingRight={1}>
-        <textarea id="query-editor" ref={editor} initialValue={props.query} focused={props.focused} flexGrow={1} width="100%" height="100%" wrapMode="none"
-          textColor={theme.text} backgroundColor={theme.surface} focusedBackgroundColor={theme.surface} focusedTextColor={theme.text}
-          selectionBg={theme.selected} selectionFg={theme.accent} cursorColor={theme.accent} syntaxStyle={syntax}
-          keyBindings={[{ name: "z", ctrl: true, action: "undo" }, { name: "y", ctrl: true, action: "redo" }, { name: "z", ctrl: true, shift: true, action: "redo" }]}
-          onMouseDown={(event) => { if (event.button === 0) props.onFocus(); }}
-          onContentChange={() => { props.onChange(editor.plainText); highlight(); }} />
+      <line_number
+        flexGrow={1}
+        minHeight={0}
+        width="100%"
+        fg={theme.muted}
+        bg={theme.surface}
+        minWidth={3}
+        paddingRight={1}
+      >
+        <textarea
+          id="query-editor"
+          ref={editor}
+          initialValue={props.query}
+          focused={props.focused}
+          flexGrow={1}
+          width="100%"
+          height="100%"
+          wrapMode="none"
+          textColor={theme.text}
+          backgroundColor={theme.surface}
+          focusedBackgroundColor={theme.surface}
+          focusedTextColor={theme.text}
+          selectionBg={theme.selected}
+          selectionFg={theme.accent}
+          cursorColor={theme.accent}
+          syntaxStyle={syntax}
+          keyBindings={[
+            { name: "z", ctrl: true, action: "undo" },
+            { name: "y", ctrl: true, action: "redo" },
+            { name: "z", ctrl: true, shift: true, action: "redo" },
+          ]}
+          onMouseDown={(event) => {
+            if (event.button === 0) props.onFocus();
+          }}
+          onContentChange={() => {
+            props.onChange(editor.plainText);
+            highlight();
+          }}
+        />
       </line_number>
     </box>
   );

@@ -2,9 +2,28 @@ import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import type { Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core";
 import { App as RealApp } from "./app";
-import { type QuerySession, type QueryResult } from "../mcp";
-const sample: QueryResult = { durationMs: 2, statements: [{ sql: "SELECT", columns: ["id", "name", "email"], rows: [[1, "Ana", "ana@example.com"], [2, "Luis", "luis@example.com"], [3, "Marta", "marta@example.com"]], count: 3, truncated: false }] };
-const fakeConnect = async (): Promise<QuerySession> => ({ execute: async () => sample, close: async () => {} });
+import { type QuerySession, type QueryResult } from "../db";
+const sample: QueryResult = {
+  durationMs: 2,
+  statements: [
+    {
+      sql: "SELECT",
+      columns: ["id", "name", "email"],
+      rows: [
+        [1, "Ana", "ana@example.com"],
+        [2, "Luis", "luis@example.com"],
+        [3, "Marta", "marta@example.com"],
+      ],
+      count: 3,
+      truncated: false,
+    },
+  ],
+};
+const fakeConnect = async (): Promise<QuerySession> => ({
+  listTables: async () => ({ tables: [{ schema: "main", name: "users" }], truncated: false }),
+  execute: async () => sample,
+  close: async () => {},
+});
 const App = () => <RealApp connect={fakeConnect} />;
 import { demoWorkspace } from "./demo-data";
 import { workspaceLayout } from "./workspace-layout";
@@ -41,7 +60,8 @@ async function click(view: View, id: string, dx = 0, dy = 0) {
 }
 async function drag(view: View, id: string, dx: number, dy: number) {
   const node = find(view, id);
-  const x = node.x, y = node.y;
+  const x = node.x,
+    y = node.y;
   await view.mockMouse.pressDown(x, y);
   await draw(view); // Mount the capture surface before the pointer leaves the divider.
   const targetX = Math.max(0, Math.min(view.renderer.width - 1, x + dx));
@@ -52,7 +72,13 @@ async function drag(view: View, id: string, dx: number, dy: number) {
   await draw(view);
 }
 
-for (const [width, height] of [[120, 40], [80, 24], [40, 24], [30, 16], [40, 20]] as const) {
+for (const [width, height] of [
+  [120, 40],
+  [80, 24],
+  [40, 24],
+  [30, 16],
+  [40, 20],
+] as const) {
   test(`interfaz en ${width}×${height}`, async () => {
     const view = await testRender(() => <App />, { width, height, useMouse: true });
     try {
@@ -64,13 +90,24 @@ for (const [width, height] of [[120, 40], [80, 24], [40, 24], [30, 16], [40, 20]
         expect(frame).toContain("40×20");
         expect(frame).not.toContain("Consultas");
       } else {
-        for (const text of ["DBHub local", "Consultas", "SELECT * FROM users LIMIT 200;", "Resultados", "Ejecuta una consulta", "Asistente LLM", "Modelo no conectado", "[Salir]", "[Ejecutar]"]) expect(frame).toContain(text);
+        for (const text of [
+          "DBHub local",
+          "Consultas",
+          "SELECT * FROM users LIMIT 200;",
+          "Resultados",
+          "Ejecuta una consulta",
+          "Asistente LLM",
+          "Modelo no conectado",
+          "[Salir]",
+          "[Ejecutar]",
+        ])
+          expect(frame).toContain(text);
         expect(frame).not.toContain("Ana");
         expect(frame).not.toContain("DEMO");
         expect(frame).toContain("╭");
         expect(frame).toContain("╯");
         if (width >= 80) {
-          expect(frame).toContain("Explorador");
+          expect(frame).toContain("Tablas · 1");
           expect(frame).not.toContain("pg_catalog");
         } else {
           expect(frame).not.toContain("Entidades");
@@ -80,7 +117,9 @@ for (const [width, height] of [[120, 40], [80, 24], [40, 24], [30, 16], [40, 20]
         const resultLines = frame.split("\n").filter((line) => /Ana|Luis|Marta/.test(line));
         expect(resultLines).toHaveLength(0);
       }
-    } finally { await view.dispose(); }
+    } finally {
+      await view.dispose();
+    }
   });
 }
 
@@ -114,7 +153,9 @@ test("edición SQL, q como texto, saltos de línea, pegado y deshacer", async ()
     await draw(view);
     expect(editor.hasSelection()).toBe(true);
     expect(editor.getSelectedText().length).toBeGreaterThan(0);
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 test("ratón: ejecución, filas, asistente y retorno al editor", async () => {
@@ -129,11 +170,15 @@ test("ratón: ejecución, filas, asistente y retorno al editor", async () => {
     await click(view, "assistant-editor");
     await view.mockInput.typeText("Que tablas hay?");
     await draw(view);
-    expect((find(view, "assistant-editor") as TextareaRenderable).plainText).toBe("Que tablas hay?");
+    expect((find(view, "assistant-editor") as TextareaRenderable).plainText).toBe(
+      "Que tablas hay?",
+    );
     expect((find(view, "query-editor") as TextareaRenderable).plainText).toBe(before);
     await click(view, "query-editor");
     expect(view.renderer.currentFocusedRenderable?.id).toBe("query-editor");
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 test("separadores arrastrables, límites y captura fuera del separador", async () => {
@@ -172,7 +217,9 @@ test("separadores arrastrables, límites y captura fuera del separador", async (
     await draw(view);
     expect(find(view, "results-panel").height).toBe(resultHeight);
     expectBounds(view.captureCharFrame(), 120, 40);
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 test("rueda en SQL; Tab cambia el foco sin insertar texto", async () => {
@@ -196,12 +243,14 @@ test("rueda en SQL; Tab cambia el foco sin insertar texto", async () => {
     await draw(view);
     expect(view.renderer.currentFocusedRenderable?.id).toBe("result-rows");
     expect(editor.plainText).toBe(before);
-    // The pending explorer has no fake tree after resizing.
+    // The explorer retains the discovered tables after resizing.
     view.resize(80, 20);
     await draw(view);
-    expect(view.captureCharFrame()).toContain("Explorador");
+    expect(view.captureCharFrame()).toContain("Tablas · 1");
     expect(view.captureCharFrame()).not.toContain("> users");
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 test("conserva texto y ajustes al cambiar tamaño; termina arrastre al redimensionar", async () => {
@@ -237,7 +286,9 @@ test("conserva texto y ajustes al cambiar tamaño; termina arrastre al redimensi
     await draw(view);
     expect(find(view, "results-panel").height).toBe(resultsHeight);
     expectBounds(view.captureCharFrame(), 100, 30);
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 for (const method of ["ctrl+c", "mouse"]) {
@@ -249,19 +300,57 @@ for (const method of ["ctrl+c", "mouse"]) {
       else view.mockInput.pressKey("c", { ctrl: true });
       await Bun.sleep(10);
       expect(view.renderer.isDestroyed).toBe(true);
-    } finally { await view.dispose(); }
+    } finally {
+      await view.dispose();
+    }
   });
 }
 
 test("rueda y barras de desplazamiento con árboles y resultados largos", async () => {
   const tables = Array.from({ length: 60 }, (_, index) => `table_${index}`);
-  const results: QueryResult = { durationMs: 1, statements: [{ sql: "SELECT", count: 60, truncated: false, columns: ["id", "name"], rows: tables.map((table, index) => [String(index), table]) }] };
-  const view = await testRender(() => <box flexDirection="row" height={12}>
-    <DatabaseSidebar width={26} connectionName="demo" schemas={[{ name: "public", expanded: true, tables }]} selectedTable="table_0"
-      collapsed={new Set<string>()} filter="" focused={false} filterFocused={false}
-      onFocus={() => {}} onFilterFocus={() => {}} onFilter={() => {}} onToggle={() => {}} onSelect={() => {}} />
-    <ResultsPanel width={54} height={12} results={results} focused={false} selectedRow={null} onFocus={() => {}} onSelectRow={() => {}} />
-  </box>, { width: 80, height: 24, useMouse: true });
+  const results: QueryResult = {
+    durationMs: 1,
+    statements: [
+      {
+        sql: "SELECT",
+        count: 60,
+        truncated: false,
+        columns: ["id", "name"],
+        rows: tables.map((table, index) => [String(index), table]),
+      },
+    ],
+  };
+  const view = await testRender(
+    () => (
+      <box flexDirection="row" height={12}>
+        <DatabaseSidebar
+          width={26}
+          connectionName="demo"
+          schemas={[{ name: "public", expanded: true, tables }]}
+          selectedTable="table_0"
+          collapsed={new Set<string>()}
+          filter=""
+          focused={false}
+          filterFocused={false}
+          onFocus={() => {}}
+          onFilterFocus={() => {}}
+          onFilter={() => {}}
+          onToggle={() => {}}
+          onSelect={() => {}}
+        />
+        <ResultsPanel
+          width={54}
+          height={12}
+          results={results}
+          focused={false}
+          selectedRow={null}
+          onFocus={() => {}}
+          onSelectRow={() => {}}
+        />
+      </box>
+    ),
+    { width: 80, height: 24, useMouse: true },
+  );
   try {
     await draw(view);
     const tree = find(view, "schema-tree") as ScrollBoxRenderable;
@@ -277,7 +366,9 @@ test("rueda y barras de desplazamiento con árboles y resultados largos", async 
       expect(scrollbox.scrollTop).toBeGreaterThan(3);
     }
     expectBounds(view.captureCharFrame(), 80, 24);
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 test("botón derecho no redimensiona; Escape cancela captura", async () => {
@@ -301,19 +392,28 @@ test("botón derecho no redimensiona; Escape cancela captura", async () => {
     await draw(view);
     expect(find(view, "sidebar-resizer").x).toBe(x);
     expect(view.renderer.currentFocusedRenderable?.id).toBe("query-editor");
-  } finally { await view.dispose(); }
+  } finally {
+    await view.dispose();
+  }
 });
 
 test("layout respeta mínimos y suma las filas disponibles", () => {
-  for (const width of [40, 80, 120]) for (const height of [20, 24, 40]) {
-    for (const preferences of [{}, { sidebar: 999, results: 999, assistant: 999 }, { sidebar: -10, results: -10, assistant: -10 }]) {
-      const layout = workspaceLayout(width, height, preferences);
-      expect(layout.queryHeight).toBeGreaterThanOrEqual(4);
-      expect(layout.resultsHeight).toBeGreaterThanOrEqual(5);
-      expect(layout.assistantHeight).toBeGreaterThanOrEqual(3);
-      expect(layout.queryHeight + layout.resultsHeight + layout.assistantHeight + 2).toBe(layout.bodyHeight);
-      expect(layout.mainWidth + layout.sidebarWidth).toBe(width - 2);
+  for (const width of [40, 80, 120])
+    for (const height of [20, 24, 40]) {
+      for (const preferences of [
+        {},
+        { sidebar: 999, results: 999, assistant: 999 },
+        { sidebar: -10, results: -10, assistant: -10 },
+      ]) {
+        const layout = workspaceLayout(width, height, preferences);
+        expect(layout.queryHeight).toBeGreaterThanOrEqual(4);
+        expect(layout.resultsHeight).toBeGreaterThanOrEqual(5);
+        expect(layout.assistantHeight).toBeGreaterThanOrEqual(3);
+        expect(layout.queryHeight + layout.resultsHeight + layout.assistantHeight + 2).toBe(
+          layout.bodyHeight,
+        );
+        expect(layout.mainWidth + layout.sidebarWidth).toBe(width - 2);
+      }
     }
-  }
   expect(demoWorkspace.results.rows).toHaveLength(3);
 });

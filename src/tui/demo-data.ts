@@ -20,14 +20,31 @@ export interface WorkspacePreview {
 export const demoWorkspace: WorkspacePreview = {
   connectionName: "demo_local",
   schemas: [
-    { name: "public", expanded: true, tables: ["users", "rooms", "room_participations", "games", "game_players", "coaches", "external_clubs", "match_contexts"] },
+    {
+      name: "public",
+      expanded: true,
+      tables: [
+        "users",
+        "rooms",
+        "room_participations",
+        "games",
+        "game_players",
+        "coaches",
+        "external_clubs",
+        "match_contexts",
+      ],
+    },
     { name: "information_schema", expanded: false, tables: [] },
     { name: "pg_catalog", expanded: false, tables: [] },
   ],
   query: "SELECT id, name, email\nFROM public.users\nLIMIT 3;",
   results: {
     columns: ["id", "name", "email"],
-    rows: [["1", "Ana", "ana@example.com"], ["2", "Luis", "luis@example.com"], ["3", "Marta", "marta@example.com"]],
+    rows: [
+      ["1", "Ana", "ana@example.com"],
+      ["2", "Luis", "luis@example.com"],
+      ["3", "Marta", "marta@example.com"],
+    ],
   },
   assistantMessage: "Pregunta sobre tu base de datos",
 };
