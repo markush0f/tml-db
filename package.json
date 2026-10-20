@@ -7,6 +7,8 @@
     "dev": "bun --preload @opentui/solid/preload --watch src/tui/index.tsx",
     "start": "bun --preload @opentui/solid/preload src/tui/index.tsx",
     "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "bun test",
     "test:tui": "bun test ./src/tui",
     "test:mcp": "bun test ./src/mcp",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.4.3",
+    "prettier": "3.9.10",
     "typescript": "^7.0.2"
   }
 }
