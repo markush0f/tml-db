@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.tsx",
-    "start": "bun src/index.tsx",
+    "dev": "bun --preload @opentui/solid/preload --watch src/tui/index.tsx",
+    "start": "bun --preload @opentui/solid/preload src/tui/index.tsx",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
