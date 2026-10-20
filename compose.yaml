@@ -1,0 +1,49 @@
+name: tml-db-demo
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tml_demo
+      POSTGRES_USER: tml_admin
+      POSTGRES_PASSWORD: ${TML_DEMO_POSTGRES_ADMIN_PASSWORD:?Run bun run docker:up}
+      TML_READER_PASSWORD: ${TML_DEMO_POSTGRES_READER_PASSWORD:?Run bun run docker:up}
+    ports:
+      - "127.0.0.1:${TML_DEMO_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U tml_admin -d tml_demo"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: tml_demo
+      MYSQL_USER: tml_reader
+      MYSQL_PASSWORD: ${TML_DEMO_MYSQL_READER_PASSWORD:?Run bun run docker:up}
+      MYSQL_ROOT_PASSWORD: ${TML_DEMO_MYSQL_ROOT_PASSWORD:?Run bun run docker:up}
+    ports:
+      - "127.0.0.1:${TML_DEMO_MYSQL_PORT:-13306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'MYSQL_PWD="$$MYSQL_PASSWORD" mysql --protocol=TCP -h 127.0.0.1 -u tml_reader -D tml_demo -Nse ''SELECT 1''',
+        ]
+      interval: 3s
+      timeout: 5s
+      start_period: 20s
+      retries: 40
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  mysql-data:
