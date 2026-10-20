@@ -8,6 +8,7 @@ export interface QueryState {
   result: QueryResult | null;
   message: string;
   executedSql: string | null;
+  writeEnabled?: boolean;
 }
 export function createQueryController(connect: SessionFactory) {
   const [state, setState] = createSignal<QueryState>({
@@ -83,7 +84,11 @@ export function createQueryController(connect: SessionFactory) {
           return;
         }
         session = acquired;
-        setState((s) => ({ ...s, connection: "ready" }));
+        setState((s) => ({
+          ...s,
+          connection: "ready",
+          writeEnabled: acquired.writeEnabled === true,
+        }));
         void refreshTables();
       } catch {
         if (!disposed)
@@ -113,6 +118,7 @@ export function createQueryController(connect: SessionFactory) {
     setState({
       connection: "ready",
       query: "running",
+      writeEnabled: current.writeEnabled === true,
       result: null,
       message: "",
       executedSql: sql,

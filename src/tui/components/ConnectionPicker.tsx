@@ -6,6 +6,8 @@ import { fit, theme } from "../theme";
 interface Props {
   manager: ConnectionManager;
   active: string;
+  /** Open the active connection's mode action without navigating the list. */
+  toggleActiveWrite?: boolean;
   width: number;
   height: number;
   onSelect: (name: string) => void;
@@ -15,7 +17,7 @@ export function ConnectionPicker(props: Props) {
   const [entries, setEntries] = createSignal<ConnectionSummary[]>([]);
   const [search, setSearch] = createSignal("");
   const [index, setIndex] = createSignal(0);
-  const [mode, setMode] = createSignal<"list" | "new" | "edit" | "delete">("list");
+  const [mode, setMode] = createSignal<"list" | "new" | "edit" | "delete" | "write">("list");
   const [name, setName] = createSignal("");
   const [secret, setSecret] = createSignal("");
   const [field, setField] = createSignal(0);
@@ -31,7 +33,7 @@ export function ConnectionPicker(props: Props) {
       1,
       Math.min(
         8,
-        props.height - 12 - Math.ceil(message().length / Math.max(1, width() - 4)) - Number(busy()),
+        props.height - 13 - Math.ceil(message().length / Math.max(1, width() - 4)) - Number(busy()),
       ),
     );
   const start = () => Math.max(0, index() - visibleRows() + 1);
@@ -45,7 +47,16 @@ export function ConnectionPicker(props: Props) {
   }
   onMount(async () => {
     await load();
-    if (alive) setBusy(false);
+    if (alive) {
+      setBusy(false);
+      if (props.toggleActiveWrite) {
+        const activeIndex = entries().findIndex((entry) => entry.name === props.active);
+        if (activeIndex >= 0) {
+          setIndex(activeIndex);
+          askWriteMode();
+        } else setMessage("La conexión activa ya no existe. Revisa el catálogo.");
+      }
+    }
   });
   onCleanup(() => {
     alive = false;
@@ -58,6 +69,10 @@ export function ConnectionPicker(props: Props) {
     }
   }
   function back() {
+    if (props.toggleActiveWrite) {
+      close();
+      return;
+    }
     setSecret("");
     setMode("list");
     setMessage("");
@@ -113,6 +128,39 @@ export function ConnectionPicker(props: Props) {
       if (alive) setBusy(false);
     }
   }
+  async function changeWriteMode(enabled: boolean) {
+    const entry = selected();
+    if (busy() || !entry || !props.manager.setWriteEnabled) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      await props.manager.setWriteEnabled(entry.name, enabled);
+      if (alive) {
+        setMode("list");
+        setMessage(
+          enabled
+            ? "Escritura habilitada. Selecciónala para conectar."
+            : "Solo lectura habilitada.",
+        );
+        // Replace the live session so its policy cannot disagree with the saved setting.
+        if (entry.name === props.active) props.onSelect(entry.name);
+      }
+    } catch (error) {
+      if (alive) {
+        setMode("list");
+        setMessage(error instanceof Error ? error.message : "No se pudo cambiar el modo.");
+      }
+    } finally {
+      await load();
+      if (alive) setBusy(false);
+    }
+  }
+  function askWriteMode() {
+    if (busy() || !selected() || !props.manager.setWriteEnabled) return;
+    setMessage("");
+    if (selected()!.writeEnabled) void changeWriteMode(false);
+    else setMode("write");
+  }
   function askDelete() {
     if (!busy() && selected()) {
       if (selected()!.name === props.active) {
@@ -156,6 +204,10 @@ export function ConnectionPicker(props: Props) {
         form(true);
         return;
       }
+      if (key.ctrl && key.name === "w") {
+        askWriteMode();
+        return;
+      }
       if (key.ctrl && key.name === "d") {
         askDelete();
         return;
@@ -175,6 +227,9 @@ export function ConnectionPicker(props: Props) {
         setIndex(0);
         return;
       }
+    } else if (mode() === "write") {
+      if (key.name === "return" || key.name === "enter") void changeWriteMode(true);
+      return;
     } else if (mode() === "delete") {
       if (key.name === "return" || key.name === "enter") void remove();
       return;
@@ -253,9 +308,11 @@ export function ConnectionPicker(props: Props) {
             ? "Nueva conexión"
             : mode() === "edit"
               ? "Sustituir credenciales"
-              : mode() === "delete"
-                ? "Eliminar conexión"
-                : "Gestionar conexiones"}
+              : mode() === "write"
+                ? "Habilitar escritura"
+                : mode() === "delete"
+                  ? "Eliminar conexión"
+                  : "Gestionar conexiones"}
         </text>
         <Show when={mode() === "list"}>
           <text height={1} fg={theme.muted}>
@@ -275,7 +332,7 @@ export function ConnectionPicker(props: Props) {
                 }}
               >
                 {fit(
-                  `${entry.name === props.active ? "*" : " "} ${entry.name} · ${entry.kind}`,
+                  `${entry.name === props.active ? "*" : " "} ${entry.name} · ${entry.writeEnabled ? "Escritura" : "Solo lectura"} · ${entry.kind}`,
                   width() - 4,
                 )}
               </text>
@@ -300,6 +357,15 @@ export function ConnectionPicker(props: Props) {
           )}
           {button("connection-new", "[+ Nueva conexión · Ctrl+N]", () => form())}
           {button("connection-edit", "[Sustituir URL · Ctrl+E]", () => form(true))}
+          <Show when={props.manager.setWriteEnabled}>
+            {button(
+              "connection-write",
+              selected()?.writeEnabled
+                ? "[Pasar a solo lectura · Ctrl+W]"
+                : "[Habilitar escritura · Ctrl+W]",
+              askWriteMode,
+            )}
+          </Show>
           {button("connection-delete", "[Eliminar · Ctrl+D]", askDelete)}
           {button("connection-close", "[Cerrar · Esc]", close)}
         </Show>
@@ -332,6 +398,18 @@ export function ConnectionPicker(props: Props) {
           </text>
           {button("connection-save", "[Guardar]", () => void save(), field() === 2)}
           {button("connection-cancel", "[Cancelar · Esc]", back, field() === 3)}
+        </Show>
+        <Show when={mode() === "write"}>
+          <text fg={theme.text}>{`¿Habilitar escritura en ${selected()?.name ?? ""}?`}</text>
+          <text fg={theme.accent}>El SQL podrá modificar o eliminar datos y tablas.</text>
+          <text fg={theme.muted}>Se guardará para esta conexión. Sin más confirmaciones.</text>
+          {button(
+            "connection-confirm-write",
+            "[Habilitar escritura · Enter]",
+            () => void changeWriteMode(true),
+            true,
+          )}
+          {button("connection-cancel-write", "[Cancelar · Esc]", back)}
         </Show>
         <Show when={mode() === "delete"}>
           <text fg={theme.text}>{`¿Eliminar ${selected()?.name ?? ""} y su secreto?`}</text>

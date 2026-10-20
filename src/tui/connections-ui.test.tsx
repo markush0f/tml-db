@@ -44,6 +44,11 @@ function setup() {
       saved.push([name, dsn, String(replace)]);
       if (!replace) entries = [...entries, { name, kind: "llavero" }];
     },
+    setWriteEnabled: async (name, enabled) => {
+      entries = entries.map((entry) =>
+        entry.name === name ? { ...entry, writeEnabled: enabled } : entry,
+      );
+    },
     remove: async (name) => {
       removed.push(name);
       entries = entries.filter((e) => e.name !== name);
@@ -52,6 +57,7 @@ function setup() {
   const connect = async (name?: string) => {
     connected.push(name);
     return {
+      writeEnabled: entries.find((entry) => entry.name === (name ?? "dev"))?.writeEnabled === true,
       close: async () => {
         closes++;
       },
@@ -90,6 +96,147 @@ for (const width of [120, 40]) {
     }
   });
 }
+for (const width of [120, 40]) {
+  test(`escritura ${width}: confirmar activación, reconectar activa y deshabilitar`, async () => {
+    const fixture = setup();
+    const view = await testRender(
+      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      { width, height: 24, useMouse: true },
+    );
+    try {
+      await draw(view);
+      view.mockInput.pressKey("k", { ctrl: true });
+      await draw(view);
+      view.mockInput.pressKey("w", { ctrl: true });
+      expect(await draw(view)).toContain("Habilitar escritura");
+      expect((await fixture.manager.list()).connections[0]!.writeEnabled).toBeUndefined();
+      view.mockInput.pressEscape();
+      await draw(view);
+      expect(fixture.connected).toEqual([undefined]);
+      await click(view, "connection-write");
+      await click(view, "connection-confirm-write");
+      expect(await draw(view)).toContain(
+        width === 40 ? "DBHub local · Escritura" : "Conectado · Escritura",
+      );
+      expect(fixture.connected).toEqual([undefined, "dev"]);
+      expect(fixture.closes()).toBe(1);
+      view.mockInput.pressKey("k", { ctrl: true });
+      await draw(view);
+      await click(view, "connection-write");
+      expect(await draw(view)).toContain(
+        width === 40 ? "DBHub local · Solo lectura" : "Conectado · Solo lectura",
+      );
+      expect(fixture.closes()).toBe(2);
+    } finally {
+      view.renderer.destroy();
+    }
+  });
+}
+
+for (const width of [120, 40]) {
+  test(`modo directo ${width}: conexión activa, cancelación, SQL intacto y sin ejecución automática`, async () => {
+    const fixture = setup();
+    let executions = 0;
+    const connect = async (name?: string) => ({
+      ...(await fixture.connect(name)),
+      execute: async () => {
+        executions++;
+        return { statements: [], durationMs: 1 };
+      },
+    });
+    const view = await testRender(() => <App connect={connect} connections={fixture.manager} />, {
+      width,
+      height: 24,
+      useMouse: true,
+    });
+    try {
+      await draw(view);
+      // Change to the second entry so the direct action must locate the active connection.
+      view.mockInput.pressKey("k", { ctrl: true });
+      await draw(view);
+      await view.mockInput.typeText("demo");
+      await draw(view);
+      view.mockInput.pressEnter();
+      await draw(view);
+      const editor = find(view, "query-editor") as TextareaRenderable;
+      const sql = editor.plainText;
+      await click(view, "write-mode-toggle");
+      expect(await draw(view)).toContain("¿Habilitar escritura en demo?");
+      view.mockInput.pressEscape();
+      expect(await draw(view)).not.toContain("Gestionar conexiones");
+      expect(editor.focused).toBe(true);
+      expect(fixture.connected).toEqual([undefined, "demo"]);
+      view.mockInput.pressKey("w", { ctrl: true });
+      await draw(view);
+      await click(view, "connection-confirm-write");
+      expect(await draw(view)).toContain("Escritura");
+      expect(
+        (await fixture.manager.list()).connections.find((e) => e.name === "demo")!.writeEnabled,
+      ).toBe(true);
+      expect(
+        (await fixture.manager.list()).connections.find((e) => e.name === "dev")!.writeEnabled,
+      ).toBeUndefined();
+      expect(fixture.connected).toEqual([undefined, "demo", "demo"]);
+      expect(editor.plainText).toBe(sql);
+      await click(view, "write-mode-toggle");
+      expect(await draw(view)).toContain("Solo lectura");
+      expect(fixture.connected).toEqual([undefined, "demo", "demo", "demo"]);
+      expect(editor.plainText).toBe(sql);
+      expect(executions).toBe(0);
+    } finally {
+      view.renderer.destroy();
+    }
+  });
+}
+
+test("cambio directo bloqueado durante conexión y ejecución", async () => {
+  const fixture = setup();
+  let resolveConnect!: () => void;
+  let resolveQuery!: () => void;
+  const connecting = new Promise<void>((resolve) => {
+    resolveConnect = resolve;
+  });
+  const querying = new Promise<void>((resolve) => {
+    resolveQuery = resolve;
+  });
+  const view = await testRender(
+    () => (
+      <App
+        connections={fixture.manager}
+        connect={async () => {
+          await connecting;
+          return {
+            ...(await fixture.connect()),
+            execute: async () => {
+              await querying;
+              return { statements: [], durationMs: 1 };
+            },
+          };
+        }}
+      />
+    ),
+    { width: 80, height: 24, useMouse: true },
+  );
+  try {
+    await draw(view);
+    view.mockInput.pressKey("w", { ctrl: true });
+    await click(view, "write-mode-toggle");
+    expect(await draw(view)).not.toContain("Habilitar escritura");
+    resolveConnect();
+    await draw(view);
+    await click(view, "execute-button");
+    expect(await draw(view)).toContain("Ejecutando");
+    view.mockInput.pressKey("w", { ctrl: true });
+    await click(view, "write-mode-toggle");
+    expect(await draw(view)).not.toContain("Habilitar escritura");
+    expect((await fixture.manager.list()).connections[0]!.writeEnabled).toBeUndefined();
+  } finally {
+    resolveConnect();
+    resolveQuery();
+    view.renderer.destroy();
+  }
+});
+
 test("registro oculto, sustitución, cancelación y eliminación con confirmación", async () => {
   const fixture = setup();
   const view = await testRender(

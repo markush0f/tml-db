@@ -39,6 +39,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   const [focus, setFocus] = createSignal<Focus>("query");
   const manager = props.connections ?? createConnectionManager();
   const [picker, setPicker] = createSignal(false);
+  const [directWrite, setDirectWrite] = createSignal(false);
   const [activeConnection, setActiveConnection] = createSignal("");
   const controller = createQueryController(
     props.connect ?? ((name) => connectQuerySession({ connectionName: name })),
@@ -51,6 +52,20 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   function openConnections() {
     if (!canChangeConnection()) return;
     stopDrag();
+    setDirectWrite(false);
+    setPicker(true);
+  }
+  const canToggleWrite = () =>
+    canChangeConnection() &&
+    state().connection === "ready" &&
+    !!activeConnection() &&
+    !!manager.setWriteEnabled;
+  const writeActionLabel = () =>
+    state().writeEnabled ? "[Solo lectura · Ctrl+W]" : "[Escritura · Ctrl+W]";
+  function toggleWrite() {
+    if (!canToggleWrite()) return;
+    stopDrag();
+    setDirectWrite(true);
     setPicker(true);
   }
   function selectConnection(name: string) {
@@ -77,7 +92,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   const connectionLabel = () =>
     ({
       connecting: "Conectando…",
-      ready: "Conectado · Solo lectura",
+      ready: state().writeEnabled ? "Conectado · Escritura" : "Conectado · Solo lectura",
       error: "Sin conexión",
       closed: "Cerrando…",
     })[state().connection];
@@ -183,6 +198,10 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
       void exit();
     } else if (picker()) {
       return;
+    } else if (key.ctrl && key.name === "w") {
+      key.preventDefault();
+      key.stopPropagation();
+      toggleWrite();
     } else if (key.ctrl && key.name === "k") {
       key.preventDefault();
       openConnections();
@@ -263,7 +282,9 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
             }}
           >
             {fit(
-              ` DBHub local${layout().compact ? ` [${activeConnection() || "Conexiones"} v]` : ` · ${activeConnection()}`} · ${connectionLabel()}`,
+              layout().compact
+                ? ` DBHub local · ${state().connection === "ready" ? (state().writeEnabled ? "Escritura" : "Solo lectura") : connectionLabel()} [${activeConnection() || "Conexiones"} v]`
+                : ` DBHub local · ${connectionLabel()} · ${activeConnection()}`,
               dimensions().width - 10,
             )}
           </text>
@@ -383,19 +404,43 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
             />
           </box>
         </box>
-        <text height={1} flexShrink={0} wrapMode="none" fg={theme.muted} selectable={false}>
-          {fit(
-            dimensions().width < 80
-              ? " Ctrl+K: conexiones · Ctrl+C: salir"
-              : " Ctrl+Enter: ejecutar · Ctrl+K: conexiones · Tab: foco · Ctrl+C: salir",
-            dimensions().width - 2,
-          )}
-        </text>
+        <box height={1} flexShrink={0} flexDirection="row">
+          <Show when={manager.setWriteEnabled}>
+            <text
+              id="write-mode-toggle"
+              height={1}
+              width={writeActionLabel().length}
+              flexShrink={0}
+              wrapMode="none"
+              fg={canToggleWrite() ? theme.accent : theme.muted}
+              selectable={false}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.button === 0) toggleWrite();
+              }}
+            >
+              {writeActionLabel()}
+            </text>
+          </Show>
+          <text height={1} flexGrow={1} wrapMode="none" fg={theme.muted} selectable={false}>
+            {fit(
+              dimensions().width < 80
+                ? " Ctrl+K: conexiones · Ctrl+C: salir"
+                : " Ctrl+Enter: ejecutar · Ctrl+K: conexiones · Tab: foco · Ctrl+C: salir",
+              Math.max(
+                1,
+                dimensions().width - 2 - (manager.setWriteEnabled ? writeActionLabel().length : 0),
+              ),
+            )}
+          </text>
+        </box>
       </box>
       <Show when={picker() && !tooSmall()}>
         <ConnectionPicker
           manager={manager}
           active={activeConnection()}
+          toggleActiveWrite={directWrite()}
           width={dimensions().width}
           height={dimensions().height}
           onSelect={selectConnection}

@@ -123,7 +123,9 @@ export function ResultsPanel(props: Props) {
                 when={table.rows.length > 0}
                 fallback={
                   <text height={1} fg={theme.muted}>
-                    Sin filas
+                    {table.columns.length === 0
+                      ? `Sin filas devueltas · Completada (${table.count} filas notificadas)`
+                      : "Sin filas"}
                   </text>
                 }
               >
