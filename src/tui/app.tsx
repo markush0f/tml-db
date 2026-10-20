@@ -1,16 +1,17 @@
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show, onMount, onCleanup } from "solid-js";
 import type { MouseEvent } from "@opentui/core";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid";
-import { DatabaseSidebar } from "./components/DatabaseSidebar";
+import { connectQuerySession } from "../mcp";
+import { createQueryController, type SessionFactory } from "./query-session";
 import { QueryPanel } from "./components/QueryPanel";
-import { ResultsPanel } from "./components/ResultsPanel";
+import { ResultsPanel, type RowSelection } from "./components/ResultsPanel";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ResizeHandle } from "./components/ResizeHandle";
 import { demoWorkspace } from "./demo-data";
 import { fit, theme } from "./theme";
 import { clamp, MIN_ASSISTANT_HEIGHT, MIN_QUERY_HEIGHT, MIN_RESULTS_HEIGHT, workspaceLayout, type LayoutPreferences } from "./workspace-layout";
 
-type Focus = "query" | "results" | "assistant" | "filter" | "sidebar";
+type Focus = "query" | "results" | "assistant";
 type Split = "sidebar" | "results" | "assistant";
 interface Drag {
   kind: Split;
@@ -21,20 +22,33 @@ interface Drag {
   assistant: number;
 }
 
-export function App() {
+export function App(props: { connect?: SessionFactory } = {}) {
   const renderer = useRenderer();
   const dimensions = useTerminalDimensions();
   const [preferences, setPreferences] = createSignal<LayoutPreferences>({});
   const [focus, setFocus] = createSignal<Focus>("query");
-  const [query, setQuery] = createSignal(demoWorkspace.query);
+  const controller = createQueryController(props.connect ?? connectQuerySession);
+  const state = controller.state;
+  const [query, setQuery] = createSignal("SELECT * FROM users LIMIT 200;");
   const [draft, setDraft] = createSignal("");
-  const [filter, setFilter] = createSignal("");
-  const [selectedTable, setSelectedTable] = createSignal("users");
-  const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
-  const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set(demoWorkspace.schemas.filter((schema) => !schema.expanded).map((schema) => schema.name)));
+  const [selectedRow, setSelectedRow] = createSignal<RowSelection | null>(null);
   const [drag, setDrag] = createSignal<Drag | null>(null);
   const layout = () => workspaceLayout(dimensions().width, dimensions().height, preferences());
   const tooSmall = () => dimensions().width < 40 || dimensions().height < 20;
+
+  const actionDisabled = () => tooSmall() || state().connection === "connecting" || state().connection === "closed" || state().query === "running" || (state().connection === "ready" && !query().trim());
+  const connectionLabel = () => ({ connecting: "Conectando…", ready: "Conectado · Solo lectura", error: "Sin conexión", closed: "Cerrando…" })[state().connection];
+  const resultMessage = () => state().message || (state().connection === "connecting" ? "Conectando…" : state().query === "running" ? "Ejecutando…" : state().query === "idle" ? "Ejecuta una consulta para ver resultados" : "");
+  function execute() {
+    if (actionDisabled()) return;
+    setSelectedRow(null);
+    if (state().connection === "error") void controller.reconnect();
+    else void controller.execute(query());
+  }
+  async function exit() { await controller.close(); renderer.destroy(); }
+  const destroyed = () => { void controller.close(); };
+  onMount(() => { renderer.on("destroy", destroyed); void controller.reconnect(); });
+  onCleanup(() => { renderer.off("destroy", destroyed); void controller.close(); });
 
   function stopDrag() {
     setDrag(null);
@@ -67,21 +81,21 @@ export function App() {
     dimensions();
     stopDrag();
   });
-  createEffect(() => {
-    if (layout().compact && (focus() === "filter" || focus() === "sidebar")) setFocus("query");
-  });
 
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
       key.preventDefault();
-      renderer.destroy();
+      void exit();
+    } else if (key.ctrl && (key.name === "return" || key.name === "enter")) {
+      key.preventDefault();
+      execute();
     } else if (key.name === "escape") {
       key.preventDefault();
       stopDrag();
       setFocus("query");
     } else if (key.name === "tab") {
       key.preventDefault();
-      const order: Focus[] = layout().compact ? ["query", "results", "assistant"] : ["query", "results", "assistant", "filter", "sidebar"];
+      const order: Focus[] = ["query", "results", "assistant"];
       const index = order.indexOf(focus());
       setFocus(order[(index + (key.shift ? -1 : 1) + order.length) % order.length]!);
     }
@@ -95,34 +109,36 @@ export function App() {
           <text wrapMode="none" fg={theme.accent}>Terminal pequeña</text>
           <text wrapMode="none" fg={theme.text}>Mínimo: 40×20</text>
           <text wrapMode="none" fg={theme.muted}>Ctrl+C: salir</text>
-          <text wrapMode="none" fg={theme.accent} selectable={false} onMouseDown={(event) => { if (event.button === 0) renderer.destroy(); }}>[Salir]</text>
+          <text wrapMode="none" fg={theme.accent} selectable={false} onMouseDown={(event) => { if (event.button === 0) void exit(); }}>[Salir]</text>
         </box>
       </Show>
       <box visible={!tooSmall()} width="100%" height="100%" border borderStyle="rounded" borderColor={theme.border} flexDirection="column" overflow="hidden">
         <box height={1} flexShrink={0} flexDirection="row" justifyContent="space-between">
-          <text height={1} wrapMode="none" fg={theme.accent} selectable={false}>{` ${layout().compact ? demoWorkspace.connectionName : "tml-db"} · DEMO`}</text>
-          <text id="exit-button" height={1} width={8} fg={theme.muted} selectable={false}
-            onMouseDown={(event) => { if (event.button === 0) renderer.destroy(); }}>[Salir]</text>
+          <text height={1} width={dimensions().width - 10} wrapMode="none" fg={theme.accent} selectable={false}>{fit(` DBHub local · ${connectionLabel()}`, dimensions().width - 10)}</text>
+          <text id="exit-button" height={1} width={8} flexShrink={0} fg={theme.muted} selectable={false}
+            onMouseDown={(event) => { if (event.button === 0) void exit(); }}>[Salir]</text>
         </box>
         <box height={layout().bodyHeight} flexShrink={0} flexDirection="row" overflow="hidden">
           <Show when={!layout().compact}>
-            <DatabaseSidebar width={layout().sidebarWidth - 1} connectionName={demoWorkspace.connectionName} schemas={demoWorkspace.schemas} selectedTable={selectedTable()}
-              collapsed={collapsed()} filter={filter()} focused={!tooSmall() && focus() === "sidebar"} filterFocused={!tooSmall() && focus() === "filter"}
-              onFocus={() => setFocus("sidebar")} onFilterFocus={() => setFocus("filter")} onFilter={setFilter} onSelect={setSelectedTable}
-              onToggle={(name) => setCollapsed((previous) => { const next = new Set(previous); if (next.has(name)) next.delete(name); else next.add(name); return next; })} />
+            <box id="database-sidebar" width={layout().sidebarWidth - 1} height="100%" padding={1} flexDirection="column">
+              <text fg={theme.text}>DBHub local</text>
+              <text fg={theme.muted}>Explorador pendiente de conectar</text>
+            </box>
             <ResizeHandle id="sidebar-resizer" vertical length={layout().bodyHeight} active={drag()?.kind === "sidebar"} onStart={(event) => startDrag("sidebar", event)} />
           </Show>
           <box width={layout().mainWidth} height="100%" backgroundColor={theme.surface} flexDirection="column" overflow="hidden">
-            <QueryPanel height={layout().queryHeight} query={query()} focused={!tooSmall() && focus() === "query"} onFocus={() => setFocus("query")} onChange={setQuery} />
+            <QueryPanel height={layout().queryHeight} query={query()} focused={!tooSmall() && focus() === "query"} onFocus={() => setFocus("query")} onChange={setQuery}
+              actionLabel={state().connection === "error" ? "Reconectar" : state().query === "running" ? "Ejecutando…" : "Ejecutar"}
+              actionDisabled={actionDisabled()} onExecute={execute} />
             <ResizeHandle id="results-resizer" length={layout().mainWidth} active={drag()?.kind === "results"} onStart={(event) => startDrag("results", event)} />
-            <ResultsPanel height={layout().resultsHeight} width={layout().mainWidth} compact={layout().mainWidth < 56} results={demoWorkspace.results}
+            <ResultsPanel height={layout().resultsHeight} width={layout().mainWidth} results={state().result} message={resultMessage()}
               focused={!tooSmall() && focus() === "results"} selectedRow={selectedRow()} onFocus={() => setFocus("results")} onSelectRow={setSelectedRow} />
             <ResizeHandle id="assistant-resizer" length={layout().mainWidth} active={drag()?.kind === "assistant"} onStart={(event) => startDrag("assistant", event)} />
             <AssistantPanel height={layout().assistantHeight} width={layout().mainWidth} message={demoWorkspace.assistantMessage} draft={draft()}
               focused={!tooSmall() && focus() === "assistant"} onFocus={() => setFocus("assistant")} onChange={setDraft} />
           </box>
         </box>
-        <text height={1} flexShrink={0} wrapMode="none" fg={theme.muted} selectable={false}>{fit(dimensions().width < 100 ? " Arrastra bordes · Tab · Ctrl+C: salir" : " Datos ficticios · Sin conexión · Arrastra bordes para ajustar · Tab: foco · Ctrl+C: salir", dimensions().width - 2)}</text>
+        <text height={1} flexShrink={0} wrapMode="none" fg={theme.muted} selectable={false}>{fit(dimensions().width < 80 ? " Ctrl+Enter: ejecutar · Ctrl+C: salir" : " Ctrl+Enter: ejecutar · Solo lectura · Arrastra bordes · Tab: foco · Ctrl+C: salir", dimensions().width - 2)}</text>
       </box>
       <Show when={drag()}>
         <box id="resize-capture" position="absolute" left={0} top={0} width="100%" height="100%" zIndex={100} shouldFill={false}

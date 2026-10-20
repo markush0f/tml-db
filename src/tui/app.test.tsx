@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
-import type { Renderable, TextareaRenderable, ScrollBoxRenderable, InputRenderable } from "@opentui/core";
-import { App } from "./app";
+import type { Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core";
+import { App as RealApp } from "./app";
+import { type QuerySession, type QueryResult } from "../mcp";
+const sample: QueryResult = { durationMs: 2, statements: [{ sql: "SELECT", columns: ["id", "name", "email"], rows: [[1, "Ana", "ana@example.com"], [2, "Luis", "luis@example.com"], [3, "Marta", "marta@example.com"]], count: 3, truncated: false }] };
+const fakeConnect = async (): Promise<QuerySession> => ({ execute: async () => sample, close: async () => {} });
+const App = () => <RealApp connect={fakeConnect} />;
 import { demoWorkspace } from "./demo-data";
 import { workspaceLayout } from "./workspace-layout";
 import { DatabaseSidebar } from "./components/DatabaseSidebar";
@@ -60,19 +64,21 @@ for (const [width, height] of [[120, 40], [80, 24], [40, 24], [30, 16], [40, 20]
         expect(frame).toContain("40×20");
         expect(frame).not.toContain("Consultas");
       } else {
-        for (const text of ["DEMO", "Consultas", "SELECT id, name, email", "FROM public.users", "LIMIT 3;", "Resultados", "3 filas de ejemplo", "Ana", "Luis", "Marta", "Asistente LLM", "Modelo no conectado", "[Salir]"]) expect(frame).toContain(text);
+        for (const text of ["DBHub local", "Consultas", "SELECT * FROM users LIMIT 200;", "Resultados", "Ejecuta una consulta", "Asistente LLM", "Modelo no conectado", "[Salir]", "[Ejecutar]"]) expect(frame).toContain(text);
+        expect(frame).not.toContain("Ana");
+        expect(frame).not.toContain("DEMO");
         expect(frame).toContain("╭");
         expect(frame).toContain("╯");
         if (width >= 80) {
-          for (const text of ["Entidades · 8", "public", "users", "pg_catalog", "ana@example.com"]) expect(frame).toContain(text);
+          expect(frame).toContain("Explorador");
+          expect(frame).not.toContain("pg_catalog");
         } else {
           expect(frame).not.toContain("Entidades");
           expect(frame).not.toContain("example.com");
-          expect(frame).toContain("demo_local");
+          expect(frame).toContain("DBHub local");
         }
         const resultLines = frame.split("\n").filter((line) => /Ana|Luis|Marta/.test(line));
-        expect(resultLines).toHaveLength(3);
-        expect(new Set(resultLines.map((line) => line.indexOf(" | "))).size).toBe(1);
+        expect(resultLines).toHaveLength(0);
       }
     } finally { await view.dispose(); }
   });
@@ -111,30 +117,13 @@ test("edición SQL, q como texto, saltos de línea, pegado y deshacer", async ()
   } finally { await view.dispose(); }
 });
 
-test("ratón: filtro, esquemas, tablas, filas, asistente y retorno al editor", async () => {
+test("ratón: ejecución, filas, asistente y retorno al editor", async () => {
   const view = await testRender(() => <App />, { width: 120, height: 40, useMouse: true });
   try {
     await draw(view);
-    await click(view, "schema-public");
-    expect(view.captureCharFrame()).not.toContain("> users");
-    await click(view, "schema-public");
-    await click(view, "table-public-rooms");
-    expect(view.captureCharFrame()).toContain("> rooms");
-    await click(view, "table-filter");
-    await view.mockInput.typeText("game");
-    await draw(view);
-    expect(view.captureCharFrame()).toContain("Entidades · 2");
-    expect(view.captureCharFrame()).not.toContain("external_clubs");
-    const filter = find(view, "table-filter") as InputRenderable;
-    filter.selectAll();
-    await view.mockInput.typeText("zzzz");
-    await draw(view);
-    expect(view.captureCharFrame()).toContain("Sin coincidencias");
-    filter.selectAll();
-    view.mockInput.pressBackspace();
-    await draw(view);
-    expect(view.captureCharFrame()).toContain("Entidades · 8");
-    await click(view, "result-row-1");
+    await click(view, "execute-button");
+    expect(view.captureCharFrame()).toContain("Ana");
+    await click(view, "result-row-0-1");
     expect(view.renderer.currentFocusedRenderable?.id).toBe("result-rows");
     const before = (find(view, "query-editor") as TextareaRenderable).plainText;
     await click(view, "assistant-editor");
@@ -186,7 +175,7 @@ test("separadores arrastrables, límites y captura fuera del separador", async (
   } finally { await view.dispose(); }
 });
 
-test("rueda en SQL y explorador; Tab cambia el foco sin insertar texto", async () => {
+test("rueda en SQL; Tab cambia el foco sin insertar texto", async () => {
   const view = await testRender(() => <App />, { width: 80, height: 24, useMouse: true });
   try {
     await draw(view);
@@ -207,14 +196,10 @@ test("rueda en SQL y explorador; Tab cambia el foco sin insertar texto", async (
     await draw(view);
     expect(view.renderer.currentFocusedRenderable?.id).toBe("result-rows");
     expect(editor.plainText).toBe(before);
-    // A short tree has nothing to scroll, but remains clickable after resizing.
+    // The pending explorer has no fake tree after resizing.
     view.resize(80, 20);
     await draw(view);
-    const tree = find(view, "schema-tree") as ScrollBoxRenderable;
-    await view.mockMouse.scroll(tree.x + 1, tree.y + 2, "down");
-    await draw(view);
-    expect(tree.scrollTop).toBe(0);
-    await click(view, "schema-public");
+    expect(view.captureCharFrame()).toContain("Explorador");
     expect(view.captureCharFrame()).not.toContain("> users");
   } finally { await view.dispose(); }
 });
@@ -270,12 +255,12 @@ for (const method of ["ctrl+c", "mouse"]) {
 
 test("rueda y barras de desplazamiento con árboles y resultados largos", async () => {
   const tables = Array.from({ length: 60 }, (_, index) => `table_${index}`);
-  const results = { columns: ["id", "name"], rows: tables.map((table, index) => [String(index), table]) };
+  const results: QueryResult = { durationMs: 1, statements: [{ sql: "SELECT", count: 60, truncated: false, columns: ["id", "name"], rows: tables.map((table, index) => [String(index), table]) }] };
   const view = await testRender(() => <box flexDirection="row" height={12}>
     <DatabaseSidebar width={26} connectionName="demo" schemas={[{ name: "public", expanded: true, tables }]} selectedTable="table_0"
       collapsed={new Set<string>()} filter="" focused={false} filterFocused={false}
       onFocus={() => {}} onFilterFocus={() => {}} onFilter={() => {}} onToggle={() => {}} onSelect={() => {}} />
-    <ResultsPanel width={54} height={12} compact results={results} focused={false} selectedRow={null} onFocus={() => {}} onSelectRow={() => {}} />
+    <ResultsPanel width={54} height={12} results={results} focused={false} selectedRow={null} onFocus={() => {}} onSelectRow={() => {}} />
   </box>, { width: 80, height: 24, useMouse: true });
   try {
     await draw(view);

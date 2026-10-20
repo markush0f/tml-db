@@ -9,6 +9,9 @@ interface Props {
   readonly focused: boolean;
   readonly onFocus: () => void;
   readonly onChange: (query: string) => void;
+  readonly actionLabel: string;
+  readonly actionDisabled: boolean;
+  readonly onExecute: () => void;
 }
 
 export function QueryPanel(props: Props) {
@@ -30,7 +33,11 @@ export function QueryPanel(props: Props) {
   return (
     <box id="query-panel" height={props.height} flexShrink={0} flexDirection="column" overflow="hidden" paddingLeft={1} paddingRight={1}
       onMouseDown={(event) => { if (event.button === 0) props.onFocus(); }}>
-      <text height={1} flexShrink={0} fg={props.focused ? theme.accent : theme.text} selectable={false}><b>Consultas</b></text>
+      <box height={1} flexShrink={0} flexDirection="row" justifyContent="space-between">
+        <text fg={props.focused ? theme.accent : theme.text} selectable={false}><b>Consultas</b></text>
+        <text id="execute-button" fg={props.actionDisabled ? theme.muted : theme.accent} selectable={false}
+          onMouseDown={(event) => { if (event.button === 0 && !props.actionDisabled) { event.stopPropagation(); props.onExecute(); } }}>{`[${props.actionLabel}]`}</text>
+      </box>
       <line_number flexGrow={1} minHeight={0} width="100%" fg={theme.muted} bg={theme.surface} minWidth={3} paddingRight={1}>
         <textarea id="query-editor" ref={editor} initialValue={props.query} focused={props.focused} flexGrow={1} width="100%" height="100%" wrapMode="none"
           textColor={theme.text} backgroundColor={theme.surface} focusedBackgroundColor={theme.surface} focusedTextColor={theme.text}
