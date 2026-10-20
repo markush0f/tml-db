@@ -6,7 +6,7 @@ Interfaz local interactiva basada en el boceto del usuario. La terminal proporci
 
 Marco exterior redondeado, cabecera y pie de una fila. La cabecera incluye `[Salir]`, accesible con el ratón. El cuerpo tiene una división vertical y dos horizontales; sin tarjetas ni separadores duplicados.
 
-Espacio de explorador de 26 columnas desde 100 columnas; de 22 entre 80 y 99 (incluido su separador). Muestra DBHub local y `Explorador pendiente de conectar`, sin tablas ni controles ficticios. El componente de árbol se conserva para una integración posterior, pero no se monta en la aplicación activa.
+Espacio de explorador de 26 columnas desde 100 columnas; de 22 entre 80 y 99 (incluido su separador). Muestra un selector de conexión con nombre activo y, debajo, Tablas con recuento, esquemas y nombres reales obtenidos mediante search_objects. Lista con scroll vertical y acción Actualizar; carga, vacío, error seguro y aviso de lista parcial (1000) explícitos. Cambiar de conexión limpia inmediatamente el catálogo e ignora respuestas tardías. No se consulta el contenido de las tablas ni se modifica el SQL del editor. El árbol de fixtures se conserva solo para pruebas.
 
 A la derecha: Consultas con gutter vinculado al editor, palabras clave SQL amarillas y acción Ejecutar/Reconectar en el título; Resultados con columnas dinámicas alineadas, selección de fila por conjunto, scroll horizontal/vertical, recuento y duración; Asistente LLM con estado no conectado y editor de borrador. Los títulos de la región enfocada son amarillos. Cursor amarillo y selección gris/amarilla.
 
@@ -22,9 +22,17 @@ Tokens en `src/tui/theme.ts`: fondo `#000000`, superficie `#111111`, selección 
 
 ## Adaptación
 
-De 40 a 79 columnas se oculta el explorador. La cabecera muestra DBHub local y estado seguro de conexión, reservando espacio para Salir. La tabla conserva todas las columnas mediante scroll horizontal; cada columna mide entre 4 y 40 celdas de terminal. Valores largos se truncan; controles se escapan y nulos se representan como NULL. Por debajo de 40 columnas o 20 filas se muestra `Terminal pequeña`, `Mínimo: 40×20` y salida con Ctrl+C o Salir. Los editores permanecen montados y conservan texto/historial, aunque no reciben entrada mientras están ocultos.
+De 40 a 79 columnas se oculta el explorador. La cabecera muestra DBHub local, acceso al selector con nombre activo y estado seguro de conexión, reservando espacio para Salir. La tabla conserva todas las columnas mediante scroll horizontal; cada columna mide entre 4 y 40 celdas de terminal. Valores largos se truncan; controles se escapan y nulos se representan como NULL. Por debajo de 40 columnas o 20 filas se muestra `Terminal pequeña`, `Mínimo: 40×20` y salida con Ctrl+C o Salir. Los editores permanecen montados y conservan texto/historial, aunque no reciben entrada mientras están ocultos.
 
 SQL no se envuelve; admite desplazamiento vertical y horizontal mediante rueda compatible. El borrador LLM sí se envuelve. Resultados tienen rueda y barras de desplazamiento nativas; encabezados y filas comparten la superficie desplazable. Etiquetas largas se truncan con puntos suspensivos. Sin persistencia de ajustes.
+
+## Gestión de conexiones
+
+Ctrl+K o clic en la conexión abre un selector centrado, negro/gris con borde amarillo, y aísla el foco del editor. Buscar escribiendo; ↑/↓ selecciona, Enter conecta y Escape cierra/restaura foco. Lista acotada a la altura disponible con indicador de cantidad. Acciones visibles para conectar, registrar (Ctrl+N), sustituir URL (Ctrl+E) y eliminar (Ctrl+D). No se abre durante conexión/ejecución ni bajo el mínimo de terminal.
+
+Registro y sustitución dentro de la misma superficie: nombre, URL completa oculta, Guardar y Cancelar; Tab/Shift+Tab recorre campos y acciones. No se recupera el secreto anterior al editar. Pegar no revela URL, la representación solo usa asteriscos; Ctrl+U vacía el campo. Errores y espera explícitos, sin almacenar en archivos cuando falla el llavero. Cancelar o cerrar descarta el secreto del formulario. El borrado pide confirmación y no permite eliminar la conexión activa ni la última.
+
+El cambio conserva SQL/borrador, limpia resultados y selección, cierra la sesión anterior y no ejecuta SQL. No cambia active en disco. El gestor persiste referencias secret_ref y almacena las URLs en el llavero mediante Bun.secrets; conserva compatibilidad con dsn_env y demo. Sin dependencias nuevas ni cambios de paleta.
 
 ## Teclado y alcance
 

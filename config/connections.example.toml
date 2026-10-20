@@ -1,5 +1,7 @@
 # Copy to config/connections.toml (local, ignored by Git).
-# Change active, then restart the TUI or use Reconectar after disconnecting.
+# active selects the startup connection. Ctrl+K switches connections for this session.
+# Use + Nueva conexión in the TUI to store full URLs in the OS keychain.
+# The TUI writes secret_ref identifiers here, never credentials.
 active = "demo"
 
 [connections.demo]
