@@ -23,7 +23,9 @@ export async function connectDbHub(options: DbHubOptions = {}) {
     await client.connect(transport, { timeout: options.timeoutMs ?? 15_000 });
   } catch {
     await close();
-    throw new Error("No se pudo conectar a DBHub local. Comprueba Node.js >= 22.5.0, bun install, config/connections.toml y .env en la raíz del proyecto.");
+    throw new Error(
+      "No se pudo conectar a DBHub local. Comprueba Node.js >= 22.5.0, bun install, config/connections.toml y .env en la raíz del proyecto.",
+    );
   }
   return { client, pid: transport.pid, close, [Symbol.asyncDispose]: close };
 }

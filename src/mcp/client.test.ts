@@ -4,9 +4,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { getDefaultEnvironment, StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import {
+  getDefaultEnvironment,
+  StdioClientTransport,
+} from "@modelcontextprotocol/sdk/client/stdio.js";
 import { connectDbHub } from "./client";
-import { dbHubLaunch, defaultDemoPath, initializeDemoDatabase, projectDirectory, sqliteDsn } from "./config";
+import { defaultDemoPath, initializeDemoDatabase, projectDirectory, sqliteDsn } from "../db/config";
+import { dbHubLaunch } from "./config";
 
 let directory: string;
 let dsn: string;
@@ -17,13 +21,21 @@ beforeAll(async () => {
   // Reinitializing never duplicates the sample rows.
   await initializeDemoDatabase(database);
   dsn = sqliteDsn(database);
-  await writeFile(join(directory, "connections.toml"), 'active = "test"\n[connections.test]\ndsn_env = "DBHUB_DSN"\n');
+  await writeFile(
+    join(directory, "connections.toml"),
+    'active = "test"\n[connections.test]\ndsn_env = "DBHUB_DSN"\n',
+  );
 });
-afterAll(async () => { if (directory) await rm(directory, { recursive: true, force: true }); });
+afterAll(async () => {
+  if (directory) await rm(directory, { recursive: true, force: true });
+});
 
 function text(result: Record<string, unknown>) {
   if (!Array.isArray(result.content)) throw new Error("Expected MCP content array");
-  return (result.content as Array<{ type: string; text?: string }>).filter((item) => item.type === "text").map((item) => item.text ?? "").join("\n");
+  return (result.content as Array<{ type: string; text?: string }>)
+    .filter((item) => item.type === "text")
+    .map((item) => item.text ?? "")
+    .join("\n");
 }
 
 test("conecta con DBHub real local, descubre herramientas, esquemas y filas", async () => {
@@ -31,15 +43,27 @@ test("conecta con DBHub real local, descubre herramientas, esquemas y filas", as
   try {
     const tools = (await connection.client.listTools()).tools.map((tool) => tool.name);
     expect(tools).toEqual(expect.arrayContaining(["execute_sql", "search_objects"]));
-    const objects = await connection.client.callTool({ name: "search_objects", arguments: { object_type: "table", pattern: "users" } });
+    const objects = await connection.client.callTool({
+      name: "search_objects",
+      arguments: { object_type: "table", pattern: "users" },
+    });
     expect(objects.isError).not.toBe(true);
     expect(text(objects)).toContain("users");
-    const result = await connection.client.callTool({ name: "execute_sql", arguments: { sql: "SELECT id, name FROM users ORDER BY id;" } });
+    const result = await connection.client.callTool({
+      name: "execute_sql",
+      arguments: { sql: "SELECT id, name FROM users ORDER BY id;" },
+    });
     expect(result.isError).not.toBe(true);
     const payload = JSON.parse(text(result));
     expect(payload.success).toBe(true);
-    expect(payload.data.statements[0].rows).toEqual([{ id: 1, name: "Ana" }, { id: 2, name: "Luis" }, { id: 3, name: "Marta" }]);
-  } finally { await connection.close(); }
+    expect(payload.data.statements[0].rows).toEqual([
+      { id: 1, name: "Ana" },
+      { id: 2, name: "Luis" },
+      { id: 3, name: "Marta" },
+    ]);
+  } finally {
+    await connection.close();
+  }
   await connection.close(); // Idempotent shutdown; no orphaned Node server.
   expect(() => process.kill(connection.pid!, 0)).toThrow();
 }, 20_000);
@@ -47,14 +71,27 @@ test("conecta con DBHub real local, descubre herramientas, esquemas y filas", as
 test("bloquea escrituras en el servidor y mantiene los datos", async () => {
   const connection = await connectDbHub({ dsn });
   try {
-    const denied = await connection.client.callTool({ name: "execute_sql", arguments: { sql: "DELETE FROM users;" } });
+    const denied = await connection.client.callTool({
+      name: "execute_sql",
+      arguments: { sql: "DELETE FROM users;" },
+    });
     expect(denied.isError === true || JSON.parse(text(denied)).success === false).toBe(true);
-    const result = await connection.client.callTool({ name: "execute_sql", arguments: { sql: "SELECT COUNT(*) AS total FROM users;" } });
+    const result = await connection.client.callTool({
+      name: "execute_sql",
+      arguments: { sql: "SELECT COUNT(*) AS total FROM users;" },
+    });
     expect(JSON.parse(text(result)).data.statements[0].rows[0].total).toBe(3);
-    const limited = await connection.client.callTool({ name: "execute_sql", arguments: { sql: "WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500) SELECT n FROM seq;" } });
+    const limited = await connection.client.callTool({
+      name: "execute_sql",
+      arguments: {
+        sql: "WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500) SELECT n FROM seq;",
+      },
+    });
     expect(limited.isError).not.toBe(true);
     expect(JSON.parse(text(limited)).data.statements[0].rows.length).toBeLessThanOrEqual(200);
-  } finally { await connection.close(); }
+  } finally {
+    await connection.close();
+  }
 }, 20_000);
 
 test("credenciales solo en entorno; no hay puerto ni HTTP", async () => {
@@ -71,7 +108,9 @@ test("credenciales solo en entorno; no hay puerto ni HTTP", async () => {
 });
 
 test("fallo de conexión acotado sin mostrar DSN ni contraseña", async () => {
-  await expect(connectDbHub({ dsn: "invalid://reader:DO_NOT_LOG_ME@localhost/db", timeoutMs: 3_000 })).rejects.toThrow("No se pudo conectar a DBHub local.");
+  await expect(
+    connectDbHub({ dsn: "invalid://reader:DO_NOT_LOG_ME@localhost/db", timeoutMs: 3_000 }),
+  ).rejects.toThrow("No se pudo conectar a DBHub local.");
 }, 10_000);
 
 test("entrypoint stdio independiente funciona desde otro directorio y cierra el hijo", async () => {
@@ -79,7 +118,11 @@ test("entrypoint stdio independiente funciona desde otro directorio y cierra el 
     command: process.execPath,
     args: [fileURLToPath(new URL("./server.ts", import.meta.url))],
     cwd: directory,
-    env: { ...getDefaultEnvironment(), DBHUB_DSN: dsn, DBHUB_CONNECTIONS_FILE: join(directory, "connections.toml") },
+    env: {
+      ...getDefaultEnvironment(),
+      DBHUB_DSN: dsn,
+      DBHUB_CONNECTIONS_FILE: join(directory, "connections.toml"),
+    },
     stderr: "pipe",
   });
   transport.stderr?.on("data", () => {});
