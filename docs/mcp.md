@@ -51,7 +51,7 @@ En `.env` en la raíz, define la variable referenciada por la conexión activa:
 DEV_DATABASE_URL=postgres://readonly:CHANGE_ME@127.0.0.1:5432/database?sslmode=disable
 ```
 
-Configura TLS según tu servidor y utiliza un usuario con permisos de solo lectura. Codifica caracteres especiales de usuario/contraseña según el formato URL. El TOML **no acepta DSN literales ni contraseñas**: cada entrada debe tener solo `dsn_env = "VARIABLE"`, `secret_ref = "identificador"` o `demo = true`. Las conexiones inactivas no necesitan sus variables todavía. Nombres de conexión: letras, números, guiones y guiones bajos. Campos desconocidos, activa inexistente, TOML inválido o variable activa vacía/ausente dan error; nunca provocan fallback silencioso a otra base.
+Configura TLS según tu servidor y utiliza un usuario con los mínimos permisos necesarios. Codifica caracteres especiales de usuario/contraseña según el formato URL. El TOML **no acepta DSN literales ni contraseñas**: cada entrada debe tener `dsn_env = "VARIABLE"`, `secret_ref = "identificador"` o `demo = true`, y opcionalmente `write_enabled = true` (por defecto false). Las conexiones inactivas no necesitan sus variables todavía. Nombres de conexión: letras, números, guiones y guiones bajos. Campos desconocidos, activa inexistente, TOML inválido o variable activa vacía/ausente dan error; nunca provocan fallback silencioso a otra base.
 
 El catálogo local y `.env` están excluidos de Git; solo se versionan plantillas. **Ctrl+K** abre el selector y gestor: buscar por nombre, conectar con Enter, crear con Ctrl+N, sustituir la URL con Ctrl+E y eliminar con Ctrl+D y confirmación. La conexión activa de la sesión no se puede eliminar; primero cambia a otra. Tampoco se puede eliminar la última conexión. El cambio es temporal; `active` sigue definiendo el próximo arranque. Cada conexión nueva relee el archivo; una sesión abierta conserva su base.
 
@@ -84,7 +84,9 @@ Nunca incluyas credenciales en código, argumentos CLI o archivos versionados. E
 
 `config/dbhub.toml` define una fuente `local` cuya DSN se interpola desde `${DBHUB_DSN}`:
 
-- `execute_sql`: solo lectura, máximo 200 filas.
+- `execute_sql`: solo lectura por defecto, máximo 200 filas devueltas.
+
+Si la conexión seleccionada tiene `write_enabled = true`, el launcher usa `config/dbhub-write.toml`, con `readonly = false`. Se permiten INSERT, UPDATE, DELETE y DDL sujetos a permisos de la base. El límite no acota filas modificadas. La TUI pide confirmación solo al habilitar este ajuste desde Ctrl+K → Ctrl+W, lo persiste y reconecta si afecta a la activa; no pide confirmación al ejecutar SQL. Editar el TOML es otra forma explícita de habilitarlo. Sin catálogo o con DSN explícita se mantiene solo lectura.
 - `search_objects`: inspección de esquemas, tablas, columnas e índices.
 - Timeout de conexión: 10 segundos; consulta: 30 segundos (DBHub no aplica timeout de consulta al driver SQLite).
 - El cliente limita la negociación inicial a 15 segundos, configurable con `timeoutMs`.
@@ -111,9 +113,9 @@ try {
 }
 ```
 
-`close()` es idempotente y termina el servidor hijo; también se admite `await using connection = await connectDbHub()`. No se conecta al importar el módulo. La TUI utiliza el adaptador `connectQuerySession()`: descubre `execute_sql`, normaliza sus conjuntos de resultados y oculta errores crudos. `execute(sql)` devuelve `{ statements, durationMs }`; cada conjunto contiene SQL, columnas derivadas de las filas, filas, recuento y `truncated`. Sin filas, DBHub no proporciona nombres de columnas y no se inventan. El buffer se envía íntegro, sin dividir ni reescribir SQL.
+`close()` es idempotente y termina el servidor hijo; también se admite `await using connection = await connectDbHub()`. No se conecta al importar el módulo. La TUI utiliza el adaptador `connectQuerySession()`: descubre `execute_sql`, normaliza sus conjuntos de resultados y muestra el mensaje de error SQL devuelto por DBHub, con prefijo `DBHub:`. `execute(sql)` devuelve `{ statements, durationMs }`; cada conjunto contiene SQL, columnas derivadas de las filas, filas, recuento y `truncated`. Sin filas, DBHub no proporciona nombres de columnas y no se inventan. El buffer se envía íntegro, sin dividir ni reescribir SQL.
 
-La solicitud tiene un timeout de 35 segundos; si vence o se pierde el transporte, se cierra la sesión y es necesario reconectar. Esto no garantiza cancelación SQL en el servidor, particularmente con SQLite. Un error de SQL o rechazo por solo lectura permite corregir y reintentar sin reconectar. Los errores visibles usan mensajes españoles seguros; no incluyen DSN, stderr ni mensajes crudos del driver.
+La solicitud tiene un timeout de 35 segundos; si vence o se pierde el transporte, se cierra la sesión y es necesario reconectar. Esto no garantiza cancelación SQL en el servidor, particularmente con SQLite. Una escritura podría haberse aplicado: verifica el estado antes de repetirla. Un error de SQL o rechazo por solo lectura permite corregir y reintentar sin reconectar. Los errores SQL muestran el campo `error` que devuelve DBHub (o su texto de error MCP), sin traducirlo ni sustituirlo por el genérico. Se eliminan controles de terminal y se ocultan URLs de conexión y asignaciones de contraseña reconocibles; el detalle se limita a 4000 caracteres. El mensaje puede contener nombres o valores de la base de datos. Si falta detalle, se conserva el mensaje genérico. Los fallos de transporte/protocolo siguen usando mensajes genéricos, sin mostrar excepciones ni stderr. No se crean logs.
 
 ## Servidor independiente para otros clientes MCP
 

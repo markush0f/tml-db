@@ -7,7 +7,8 @@ src/
   tui/              Interfaz de terminal OpenTUI + SolidJS
   mcp/              Cliente MCP y lanzamiento del DBHub local
   db/               Conexiones, credenciales, configuración y consultas
-config/dbhub.toml   Política interna de DBHub, de solo lectura
+config/dbhub.toml   Política de solo lectura (predeterminada)
+config/dbhub-write.toml  Política de escritura opt-in
 config/connections.toml  Conexiones locales y conexión activa (excluido de Git)
 config/connections.example.toml  Plantilla del catálogo
 .env.example       Ejemplo de conexión (copiar a .env)
@@ -62,11 +63,15 @@ Las conexiones creadas desde la TUI guardan su URL completa **en el llavero del 
 
 También puedes mantener `dsn_env`: define `DEV_DATABASE_URL` y/o `PROD_DATABASE_URL` en el entorno o en `.env` (puedes copiar `.env.example`). Solo hace falta la variable de la conexión seleccionada. `.env` no está cifrado. Sustituir una URL desde la interfaz migra esa conexión al llavero, sin modificar `.env`. Eliminar una conexión de entorno no elimina su variable.
 
-Con `active = "demo"` se usa `data/dbhub/demo.sqlite`, con tres usuarios ficticios. Sin catálogo se mantiene la compatibilidad con `DBHUB_DSN` y, si no está definida, SQLite de prueba. Un catálogo inválido o una variable activa ausente dan error, sin cambiar de base silenciosamente. El acceso SQL sigue siendo de solo lectura y con límite de 200 filas.
+Con `active = "demo"` se usa `data/dbhub/demo.sqlite`, con tres usuarios ficticios. Sin catálogo se mantiene la compatibilidad con `DBHUB_DSN` y, si no está definida, SQLite de prueba. Un catálogo inválido o una variable activa ausente dan error, sin cambiar de base silenciosamente. El acceso SQL es de solo lectura por defecto y tiene un límite de 200 filas devueltas.
+
+Para permitir escritura en la conexión actual, pulsa directamente **Ctrl+W** o el botón **[Escritura · Ctrl+W]** del pie, sin abrir el gestor ni desconectarte manualmente. También puedes abrir **Ctrl+K**, seleccionar una conexión y pulsar **Ctrl+W** o **Habilitar escritura**. La confirmación advierte de cambios y borrados; después el editor ejecuta INSERT, UPDATE, DELETE y DDL sin más avisos. La preferencia se guarda por conexión como `write_enabled = true` en el TOML (también se puede editar manualmente). Si cambias la activa, se reconecta sin ejecutar SQL. La cabecera indica **Escritura** o **Solo lectura**. La misma acción permite volver a solo lectura. Sustituir la URL conserva el modo.
+
+El modo escritura respeta los permisos del usuario de base de datos: no concede privilegios. El límite de 200 filas no limita las filas modificadas. `mcp:start` y `mcp:check` también respetan la política de la conexión seleccionada. Sin catálogo o con DSN explícita se mantiene solo lectura. Un timeout o pérdida de transporte no garantiza que una escritura no se haya aplicado: comprueba el estado antes de repetirla.
 
 La TUI conecta con DBHub al abrir, **sin ejecutar SQL automáticamente**. Pulsa **Ctrl+Enter** o `[Ejecutar]` para enviar el buffer completo del editor y ver resultados reales. Enter normal añade líneas. Ante pérdida de conexión, `[Reconectar]` prepara una sesión nueva sin ejecutar el SQL. En terminales que no distingan Ctrl+Enter, usa el botón con el ratón.
 
-La sidebar muestra las tablas reales debajo de la conexión, agrupadas por esquema, con scroll y `[Actualizar]`. Se cargan metadatos al conectar, sin ejecutar el SQL del editor ni leer filas; el límite es de 1000 tablas con aviso de lista parcial. El asistente sigue siendo un borrador local sin modelo. Los resultados admiten varias consultas de lectura y desplazamiento horizontal/vertical, indican duración y avisan si DBHub trunca a 200 filas. Ctrl+C o `[Salir]` cierran también el proceso DBHub.
+La sidebar muestra las tablas reales debajo de la conexión, agrupadas por esquema, con scroll y `[Actualizar]`. Se cargan metadatos al conectar, sin ejecutar el SQL del editor ni leer filas; el límite es de 1000 tablas con aviso de lista parcial. El asistente sigue siendo un borrador local sin modelo. Los resultados admiten varias sentencias SQL y desplazamiento horizontal/vertical, indican duración y avisan si DBHub trunca a 200 filas. Ctrl+C o `[Salir]` cierran también el proceso DBHub.
 
 - [PostgreSQL y MySQL de prueba en Docker](docs/docker.md)
 - [Interfaz, ratón y atajos](docs/tui.md)
