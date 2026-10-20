@@ -35,7 +35,7 @@ test("normaliza conjuntos, columnas variables, NULL, vacíos y truncamiento", ()
     parseQueryResult(response({ success: true, data: { statements: [] } }), 0).statements,
   ).toEqual([]);
 });
-test("rechaza protocolo inválido y oculta errores crudos", () => {
+test("rechaza protocolo inválido y oculta credenciales en errores de DBHub", () => {
   for (const payload of [
     {},
     { success: true, data: { statements: [{}] } },
@@ -51,11 +51,35 @@ test("rechaza protocolo inválido y oculta errores crudos", () => {
       { ...response({ success: false, error: "password=secret" }), isError: true },
       0,
     ),
-  ).toThrow(new QueryError("query"));
+  ).toThrow("DBHub: password=[oculto]");
   expect(() =>
     parseQueryResult(response({ success: false, code: "READONLY_VIOLATION" }), 0),
   ).toThrow(new QueryError("readonly"));
 });
+test("muestra detalle SQL de DBHub, conserva código y sanea controles", () => {
+  const detail = 'duplicate key value violates unique constraint "users_pkey"';
+  expect(() =>
+    parseQueryResult(response({ success: false, error: detail, code: "QUERY_ERROR" }), 0),
+  ).toThrow(`DBHub: ${detail}`);
+  expect(() =>
+    parseQueryResult(
+      { isError: true, content: [{ type: "text", text: "no such column: missing" }] },
+      0,
+    ),
+  ).toThrow("DBHub: no such column: missing");
+  expect(
+    new QueryError(
+      "query",
+      "\x1b[31merror\x1b[0m\x00 postgres://user:secret@host/db password='hidden word'",
+    ).message,
+  ).toBe("DBHub: error  [conexión oculta] password=[oculto]");
+  expect(new QueryError("query", "  ").message).toBe(new QueryError("query").message);
+  expect(new QueryError("query", "x".repeat(5000)).message.length).toBe(4007);
+  expect(() =>
+    parseQueryResult(response({ success: false, error: { password: "secret" } }), 0),
+  ).toThrow(new QueryError("query"));
+});
+
 test("timeout y pérdida de transporte cierran una sola vez sin filtrar secretos", async () => {
   for (const error of [new McpError(ErrorCode.RequestTimeout, "secret"), new Error("secret")]) {
     let closed = 0;
@@ -94,7 +118,7 @@ test("adaptador con SQLite real: lecturas, varios conjuntos, vacío, límite y r
     expect((await session.execute("SELECT * FROM users WHERE 1=0")).statements[0]!.rows).toEqual(
       [],
     );
-    await expect(session.execute("DELETE FROM users")).rejects.toThrow(new QueryError("readonly"));
+    await expect(session.execute("DELETE FROM users")).rejects.toMatchObject({ code: "readonly" });
     expect((await session.execute("SELECT COUNT(*) AS n FROM users")).statements[0]!.rows).toEqual([
       [3],
     ]);

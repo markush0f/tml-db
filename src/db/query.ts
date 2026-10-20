@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { connectDbHub } from "../mcp/client";
 import type { DbHubOptions } from "./config";
@@ -30,36 +31,58 @@ export interface QuerySession {
 export type QueryErrorCode = "connection" | "query" | "readonly" | "timeout" | "protocol";
 const messages: Record<QueryErrorCode, string> = {
   connection:
-    "No se pudo conectar a DBHub local. Comprueba Node.js, bun install, el catálogo, las variables y que el llavero esté desbloqueado.",
+    "Conexión DBHub no disponible. Comprueba Node.js, el catálogo y las credenciales. Si ejecutabas SQL, verifica si se aplicó antes de repetirlo.",
   query: "No se pudo ejecutar la consulta. Revisa el SQL y los nombres de tablas.",
   readonly: "Consulta rechazada: solo se permiten operaciones de lectura.",
-  timeout: "La consulta excedió el tiempo de espera. Reconecta para continuar.",
+  timeout:
+    "La consulta excedió el tiempo de espera. Reconecta y comprueba si se aplicó antes de repetirla.",
   protocol: "DBHub devolvió una respuesta no válida.",
 };
 export class QueryError extends Error {
-  constructor(readonly code: QueryErrorCode) {
-    super(messages[code]);
+  constructor(
+    readonly code: QueryErrorCode,
+    detail?: string,
+  ) {
+    const safeDetail = detail ? safeDatabaseError(detail) : "";
+    super(safeDetail ? `DBHub: ${safeDetail}` : messages[code]);
   }
+}
+/** Tool errors are useful to the user, but must not inject terminal controls or expose DSNs. */
+function safeDatabaseError(detail: string): string {
+  return stripVTControlCharacters(detail)
+    .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f\u2028\u2029]/g, " ")
+    .replace(
+      /\b(?:postgres(?:ql)?|mysql|mariadb|sqlserver|sqlite):\/\/[^\s"'<>]+/gi,
+      "[conexión oculta]",
+    )
+    .replace(/\b(password|passwd|pwd)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s;,]+)/gi, "$1=[oculto]")
+    .trim()
+    .slice(0, 4000);
 }
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 export function parseQueryResult(response: unknown, durationMs: number): QueryResult {
   if (!record(response) || !Array.isArray(response.content)) throw new QueryError("protocol");
+  const text = response.content
+    .filter((item) => record(item) && item.type === "text" && typeof item.text === "string")
+    .map((item) => item.text)
+    .join("\n");
   let payload: unknown;
   try {
-    payload = JSON.parse(
-      response.content
-        .filter((item) => record(item) && item.type === "text")
-        .map((item) => item.text)
-        .join("\n"),
-    );
+    payload = JSON.parse(text);
   } catch {
-    throw new QueryError(response.isError === true ? "query" : "protocol");
+    throw new QueryError(
+      response.isError === true ? "query" : "protocol",
+      response.isError === true ? text : undefined,
+    );
   }
   if (!record(payload)) throw new QueryError("protocol");
   if (response.isError === true || payload.success === false) {
-    throw new QueryError(payload.code === "READONLY_VIOLATION" ? "readonly" : "query");
+    throw new QueryError(
+      payload.code === "READONLY_VIOLATION" ? "readonly" : "query",
+      typeof payload.error === "string" ? payload.error : undefined,
+    );
   }
   if (payload.success !== true || !record(payload.data) || !Array.isArray(payload.data.statements))
     throw new QueryError("protocol");

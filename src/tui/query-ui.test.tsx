@@ -148,7 +148,7 @@ test("error SQL elimina filas anteriores y permite corregir sin reconectar", asy
           return {
             close: async () => {},
             execute: async () => {
-              if (++calls === 2) throw new QueryError("readonly");
+              if (++calls === 2) throw new QueryError("query", "duplicate key: users_pkey");
               return result;
             },
           };
@@ -160,7 +160,7 @@ test("error SQL elimina filas anteriores y permite corregir sin reconectar", asy
   try {
     await draw(view);
     expect(await click(view, "execute-button")).toContain("1 filas");
-    expect(await click(view, "execute-button")).toContain("solo se permiten");
+    expect(await click(view, "execute-button")).toContain("DBHub: duplicate key: users_pkey");
     expect(view.captureCharFrame()).not.toContain("1 filas");
     expect(await click(view, "execute-button")).toContain("1 filas");
     expect(connections).toBe(1);
@@ -272,10 +272,10 @@ test("recorrido completo con SQLite temporal: ejecutar, corregir, vacío, resize
     await waitFor("Conectado");
     expect(view.captureCharFrame()).not.toContain("Ana");
     await query("SELECT * FROM users LIMIT 200;", "Ana");
-    await query("SELECT * FROM missing_table;", "Revisa el SQL");
+    await query("SELECT * FROM missing_table;", "DBHub: no such table: missing_table");
     expect(view.captureCharFrame()).not.toContain("Ana");
     await query("SELECT * FROM users WHERE 1=0;", "Sin filas");
-    await query("DELETE FROM users;", "solo se permiten");
+    await query("DELETE FROM users;", "DBHub: Read-only mode is enabled.");
     await query("SELECT * FROM users;", "Marta");
     for (const [width, height] of [
       [80, 24],
