@@ -6,12 +6,20 @@
   "scripts": {
     "dev": "bun --preload @opentui/solid/preload --watch src/tui/index.tsx",
     "start": "bun --preload @opentui/solid/preload src/tui/index.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:tui": "bun test ./src/tui",
+    "test:mcp": "bun test ./src/mcp",
+    "mcp:start": "bun src/mcp/server.ts",
+    "mcp:check": "bun src/mcp/check.ts"
   },
   "engines": {
-    "bun": ">=1.3.14"
+    "bun": ">=1.3.14",
+    "node": ">=22.5.0"
   },
   "dependencies": {
+    "@bytebase/dbhub": "1.5.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@opentui/core": "^0.6.6",
     "@opentui/keymap": "^0.6.6",
     "@opentui/solid": "^0.6.6",

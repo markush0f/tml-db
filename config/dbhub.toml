@@ -1,0 +1,17 @@
+# Internal DBHub policy, not the connection catalog.
+# The launcher resolves config/connections.toml and supplies DBHUB_DSN.
+[[sources]]
+id = "local"
+dsn = "${DBHUB_DSN}"
+connection_timeout = 10
+query_timeout = 30
+
+[[tools]]
+name = "execute_sql"
+source = "local"
+readonly = true
+max_rows = 200
+
+[[tools]]
+name = "search_objects"
+source = "local"

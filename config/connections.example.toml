@@ -1,0 +1,13 @@
+# Copy to config/connections.toml (local, ignored by Git).
+# Change active, then restart the TUI or use Reconectar after disconnecting.
+active = "demo"
+
+[connections.demo]
+demo = true
+
+# Store real DSNs in environment variables or the root .env, never here.
+[connections.desarrollo]
+dsn_env = "DEV_DATABASE_URL"
+
+[connections.produccion]
+dsn_env = "PROD_DATABASE_URL"
