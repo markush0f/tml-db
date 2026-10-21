@@ -22,10 +22,20 @@ export interface TableCatalog {
   readonly tables: readonly DatabaseTable[];
   readonly truncated: boolean;
 }
+export interface DatabaseColumn {
+  readonly name: string;
+  readonly type: string;
+}
+export interface ColumnCatalog {
+  readonly columns: readonly DatabaseColumn[];
+  readonly truncated: boolean;
+}
 export interface QuerySession {
   readonly writeEnabled?: boolean;
   /** Optional for custom sessions without schema discovery. DBHub sessions always provide it. */
   listTables?(): Promise<TableCatalog>;
+  listColumns?(table: DatabaseTable): Promise<ColumnCatalog>;
+  readTable?(table: DatabaseTable): Promise<QueryResult>;
   execute(sql: string): Promise<QueryResult>;
   close(): Promise<void>;
 }
@@ -149,10 +159,58 @@ export function parseTableCatalog(response: unknown): TableCatalog {
   return { tables, truncated: payload.data.truncated };
 }
 
+export function parseColumnCatalog(response: unknown): ColumnCatalog {
+  if (!record(response) || response.isError === true || !Array.isArray(response.content))
+    throw new QueryError("protocol");
+  let payload: unknown;
+  try {
+    payload = JSON.parse(
+      response.content
+        .filter((item) => record(item) && item.type === "text")
+        .map((item) => item.text)
+        .join("\n"),
+    );
+  } catch {
+    throw new QueryError("protocol");
+  }
+  if (
+    !record(payload) ||
+    payload.success !== true ||
+    !record(payload.data) ||
+    !Array.isArray(payload.data.results) ||
+    typeof payload.data.truncated !== "boolean"
+  )
+    throw new QueryError("protocol");
+  const columns = payload.data.results.map((value): DatabaseColumn => {
+    if (!record(value) || typeof value.name !== "string" || typeof value.type !== "string")
+      throw new QueryError("protocol");
+    return { name: value.name, type: value.type };
+  });
+  return { columns, truncated: payload.data.truncated };
+}
+
+export type SqlDialect = "ansi" | "mysql" | "sqlserver" | "oracle";
+export function tablePreviewSql(table: DatabaseTable, dialect: SqlDialect = "ansi"): string {
+  const quote = (name: string) =>
+    dialect === "mysql"
+      ? `\`${name.replace(/`/g, "``")}\``
+      : dialect === "sqlserver"
+        ? `[${name.replace(/\]/g, "]]")}]`
+        : `"${name.replace(/"/g, '""')}"`;
+  const qualified = [table.schema, table.name]
+    .filter((part) => part !== "")
+    .map(quote)
+    .join(".");
+  if (dialect === "sqlserver") return `SELECT TOP (200) * FROM ${qualified};`;
+  if (dialect === "oracle") return `SELECT * FROM ${qualified} FETCH FIRST 200 ROWS ONLY`;
+  return `SELECT * FROM ${qualified} LIMIT 200;`;
+}
+
 /** Exported seam permits transport tests without spawning a database. */
 export function createQuerySession(
   connection: Pick<Awaited<ReturnType<typeof connectDbHub>>, "client" | "close">,
   timeoutMs = 35_000,
+  dialect: SqlDialect = "ansi",
 ): QuerySession {
   let closed = false;
   let closing: Promise<void> | undefined;
@@ -160,8 +218,9 @@ export function createQuerySession(
     closed = true;
     return (closing ??= connection.close());
   }
-  return {
+  const session: QuerySession = {
     close,
+    readTable: (table) => session.execute(tablePreviewSql(table, dialect)),
     async listTables() {
       if (closed) throw new QueryError("connection");
       let response: unknown;
@@ -184,6 +243,34 @@ export function createQuerySession(
       }
       return parseTableCatalog(response);
     },
+    async listColumns(table) {
+      if (closed) throw new QueryError("connection");
+      let response: unknown;
+      try {
+        response = await connection.client.callTool(
+          {
+            name: "search_objects",
+            arguments: {
+              object_type: "column",
+              schema: table.schema,
+              table: table.name,
+              detail_level: "summary",
+              limit: 1000,
+            },
+          },
+          undefined,
+          { timeout: timeoutMs },
+        );
+      } catch (error) {
+        await close().catch(() => {});
+        throw new QueryError(
+          error instanceof McpError && error.code === ErrorCode.RequestTimeout
+            ? "timeout"
+            : "connection",
+        );
+      }
+      return parseColumnCatalog(response);
+    },
     async execute(sql) {
       if (closed) throw new QueryError("connection");
       const start = performance.now();
@@ -205,6 +292,7 @@ export function createQuerySession(
       return parseQueryResult(response, performance.now() - start);
     },
   };
+  return session;
 }
 export async function connectQuerySession(options: DbHubOptions = {}): Promise<QuerySession> {
   let connection: Awaited<ReturnType<typeof connectDbHub>> | undefined;
@@ -212,7 +300,10 @@ export async function connectQuerySession(options: DbHubOptions = {}): Promise<Q
     connection = await connectDbHub(options);
     if (!(await connection.client.listTools()).tools.some((tool) => tool.name === "execute_sql"))
       throw new QueryError("protocol");
-    return { ...createQuerySession(connection), writeEnabled: connection.writeEnabled };
+    return {
+      ...createQuerySession(connection, undefined, connection.sqlDialect),
+      writeEnabled: connection.writeEnabled,
+    };
   } catch (error) {
     await connection?.close().catch(() => {});
     throw error instanceof QueryError ? error : new QueryError("connection");

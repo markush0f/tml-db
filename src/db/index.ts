@@ -1,4 +1,4 @@
-export { connectQuerySession, QueryError } from "./query";
+export { connectQuerySession, QueryError, tablePreviewSql } from "./query";
 export type {
   QueryTable,
   QueryResult,
@@ -6,6 +6,8 @@ export type {
   QueryErrorCode,
   DatabaseTable,
   TableCatalog,
+  DatabaseColumn,
+  ColumnCatalog,
 } from "./query";
 export type { DbHubOptions } from "./config";
 export { createConnectionManager } from "./connection-manager";
