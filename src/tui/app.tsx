@@ -21,7 +21,7 @@ import {
   type LayoutPreferences,
 } from "./workspace-layout";
 
-type Focus = "query" | "results" | "assistant";
+type Focus = "query" | "results" | "assistant" | "filter";
 type Split = "sidebar" | "results" | "assistant";
 interface Drag {
   kind: Split;
@@ -190,6 +190,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   createEffect(() => {
     dimensions();
     stopDrag();
+    if (dimensions().width < 80 && focus() === "filter") setFocus("query");
   });
 
   useKeyboard((key) => {
@@ -215,7 +216,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
     } else if (key.name === "tab") {
       key.preventDefault();
       const order: Focus[] = ["query", "results", "assistant"];
-      const index = order.indexOf(focus());
+      const index = focus() === "filter" ? (key.shift ? 0 : -1) : order.indexOf(focus());
       setFocus(order[(index + (key.shift ? -1 : 1) + order.length) % order.length]!);
     }
   });
@@ -308,36 +309,73 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
               id="database-sidebar"
               width={layout().sidebarWidth - 1}
               height="100%"
-              padding={1}
+              paddingLeft={1}
+              paddingRight={1}
+              backgroundColor={theme.surface}
               flexDirection="column"
             >
-              <text fg={theme.muted} height={1}>
-                Conexión · Ctrl+K
-              </text>
-              <text
-                id="connection-sidebar"
-                fg={canChangeConnection() ? theme.accent : theme.muted}
+              <box
                 height={1}
-                selectable={false}
-                wrapMode="none"
-                onMouseDown={(event) => {
-                  if (event.button === 0) openConnections();
-                }}
+                marginBottom={1}
+                flexShrink={0}
+                flexDirection="row"
+                backgroundColor={theme.selected}
               >
-                {fit(`[${activeConnection() || "Conexiones"} v]`, layout().sidebarWidth - 3)}
-              </text>
+                <text
+                  id="connection-sidebar"
+                  fg={theme.muted}
+                  flexGrow={1}
+                  height={1}
+                  selectable={false}
+                  wrapMode="none"
+                  onMouseDown={(event) => {
+                    if (event.button === 0) openConnections();
+                  }}
+                >
+                  {fit(activeConnection() || "Conexiones", layout().sidebarWidth - 8)}
+                </text>
+                <text
+                  width={2}
+                  fg={theme.muted}
+                  selectable={false}
+                  onMouseDown={(event) => {
+                    if (event.button === 0) openConnections();
+                  }}
+                >
+                  ⌄
+                </text>
+                <text
+                  id="refresh-tables"
+                  width={2}
+                  fg={theme.muted}
+                  selectable={false}
+                  onMouseDown={(event) => {
+                    if (
+                      event.button === 0 &&
+                      state().connection === "ready" &&
+                      state().query !== "running" &&
+                      controller.tables().status !== "loading"
+                    )
+                      void controller.refreshTables();
+                  }}
+                >
+                  ↻
+                </text>
+              </box>
               <TableExplorer
                 width={layout().sidebarWidth - 3}
                 status={
                   state().connection === "connecting" ? "loading" : controller.tables().status
                 }
                 catalog={controller.tables().catalog}
-                disabled={
-                  state().connection !== "ready" ||
-                  state().query === "running" ||
-                  controller.tables().status === "loading"
-                }
-                onRefresh={() => void controller.refreshTables()}
+                columns={controller.columns()}
+                disabled={state().connection !== "ready" || state().query === "running"}
+                onSelectTable={(table) => {
+                  setSelectedRow(null);
+                  void controller.browseTable(table);
+                }}
+                filterFocused={focus() === "filter" && !picker() && !tooSmall()}
+                onFilterFocus={() => setFocus("filter")}
               />
             </box>
             <ResizeHandle
@@ -381,6 +419,11 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
               height={layout().resultsHeight}
               width={layout().mainWidth}
               results={state().result}
+              tableName={
+                state().resultTable
+                  ? `${state().resultTable!.schema}.${state().resultTable!.name}`
+                  : undefined
+              }
               message={resultMessage()}
               focused={!tooSmall() && !picker() && focus() === "results"}
               selectedRow={selectedRow()}

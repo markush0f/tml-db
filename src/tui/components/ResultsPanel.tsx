@@ -12,6 +12,7 @@ interface Props {
   readonly width: number;
   readonly results: QueryResult | null;
   readonly message?: string;
+  readonly tableName?: string;
   readonly focused: boolean;
   readonly selectedRow: RowSelection | null;
   readonly onFocus: () => void;
@@ -53,11 +54,16 @@ function tableView(table: QueryTable) {
     Math.min(40, Math.max(4, cellWidth(column), ...rows.map((row) => cellWidth(row[i] ?? "")))),
   );
   const rowText = (cells: readonly string[]) =>
-    widths.map((width, i) => fitCell(cells[i] ?? "", width)).join(" | ");
+    `│ ${widths.map((width, i) => fitCell(cells[i] ?? "", width)).join(" │ ")} │`;
+  const rule = (left: string, middle: string, right: string) =>
+    left + widths.map((width) => "─".repeat(width + 2)).join(middle) + right;
   return {
     columns: rowText(columns),
     rows: rows.map(rowText),
-    width: widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * 3,
+    top: rule("┌", "┬", "┐"),
+    divider: rule("├", "┼", "┤"),
+    bottom: rule("└", "┴", "┘"),
+    width: widths.reduce((sum, width) => sum + width + 3, 0) + 1,
   };
 }
 export function ResultsPanel(props: Props) {
@@ -89,8 +95,16 @@ export function ResultsPanel(props: Props) {
         fg={props.focused ? theme.accent : theme.text}
       >
         <b>Resultados</b>
+        <span style={{ fg: theme.accent }}>
+          {props.tableName ? ` · ${safeCell(props.tableName)}` : ""}
+        </span>
         <span style={{ fg: theme.muted }}>{summary()}</span>
       </text>
+      <Show when={props.tableName}>
+        <text height={1} flexShrink={0} fg={theme.muted} wrapMode="none">
+          Vista previa · hasta 200 filas
+        </text>
+      </Show>
       <scrollbox
         id="result-rows"
         flexGrow={1}
@@ -129,13 +143,41 @@ export function ResultsPanel(props: Props) {
                   </text>
                 }
               >
-                <text height={1} wrapMode="none" fg={theme.muted}>
-                  {tables()[statementIndex()]!.columns}
+                <Show when={props.height >= 7}>
+                  <text
+                    height={1}
+                    flexShrink={0}
+                    wrapMode="none"
+                    fg={theme.border}
+                    selectable={false}
+                  >
+                    {tables()[statementIndex()]!.top}
+                  </text>
+                </Show>
+                <text
+                  width={tables()[statementIndex()]!.width}
+                  height={1}
+                  flexShrink={0}
+                  wrapMode="none"
+                  fg={theme.text}
+                  bg={theme.selected}
+                >
+                  <b>{tables()[statementIndex()]!.columns}</b>
+                </text>
+                <text
+                  height={1}
+                  flexShrink={0}
+                  wrapMode="none"
+                  fg={theme.border}
+                  selectable={false}
+                >
+                  {tables()[statementIndex()]!.divider}
                 </text>
                 <For each={tables()[statementIndex()]!.rows}>
                   {(row, rowIndex) => (
                     <text
                       id={`result-row-${statementIndex()}-${rowIndex()}`}
+                      width={tables()[statementIndex()]!.width}
                       height={1}
                       flexShrink={0}
                       wrapMode="none"
@@ -163,6 +205,15 @@ export function ResultsPanel(props: Props) {
                     </text>
                   )}
                 </For>
+                <text
+                  height={1}
+                  flexShrink={0}
+                  wrapMode="none"
+                  fg={theme.border}
+                  selectable={false}
+                >
+                  {tables()[statementIndex()]!.bottom}
+                </text>
               </Show>
             </box>
           )}

@@ -107,7 +107,7 @@ for (const [width, height] of [
         expect(frame).toContain("╭");
         expect(frame).toContain("╯");
         if (width >= 80) {
-          expect(frame).toContain("Tablas · 1");
+          expect(frame).toContain("ENTIDADES · 1");
           expect(frame).not.toContain("pg_catalog");
         } else {
           expect(frame).not.toContain("Entidades");
@@ -246,7 +246,7 @@ test("rueda en SQL; Tab cambia el foco sin insertar texto", async () => {
     // The explorer retains the discovered tables after resizing.
     view.resize(80, 20);
     await draw(view);
-    expect(view.captureCharFrame()).toContain("Tablas · 1");
+    expect(view.captureCharFrame()).toContain("ENTIDADES · 1");
     expect(view.captureCharFrame()).not.toContain("> users");
   } finally {
     await view.dispose();

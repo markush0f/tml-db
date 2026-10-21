@@ -222,6 +222,10 @@ test("resultados anchos, múltiples, vacíos y celdas seguras con scroll horizon
   try {
     const frame = await draw(view);
     expect(frame).toContain("Resultado 1");
+    expect(frame).toContain("┌");
+    expect(frame).toContain("┼");
+    expect(frame).toContain("└");
+    expect(frame).toContain("│");
     expect(frame).toContain("Resultado 2");
     expect(frame).toContain("Sin filas");
     expect(frame).toContain("Límite de 200 filas alcanzado");
