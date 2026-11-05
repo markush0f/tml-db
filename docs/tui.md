@@ -15,7 +15,7 @@ La conexión comienza al abrir la TUI, pero ninguna consulta se ejecuta automát
 
 ## Uso
 
-- **Conexiones:** acceso en la parte superior del explorador y en la cabecera compacta, o Ctrl+K. Escribe para buscar, ↑/↓ para seleccionar y Enter para conectar; Escape cierra. Ctrl+N registra, Ctrl+E sustituye la URL y Ctrl+D solicita eliminar, con confirmación. En el formulario, Tab/Shift+Tab cambia de campo/acción, Enter guarda y Ctrl+U vacía la URL oculta. Cambiar conserva SQL y borrador, limpia resultados y no ejecuta consultas. Se bloquea mientras conecta/ejecuta. No se puede eliminar la activa ni la última conexión. La selección no modifica el `active` del próximo arranque.
+- **Conexiones:** acceso en el explorador, en la cabecera compacta o con Ctrl+K. Escribe para buscar, ↑/↓ para seleccionar y Enter para conectar; Esc cierra y Ctrl+U limpia la búsqueda. El pie separa Nueva conexión, Acciones y Conectar. Acciones abre el menú para editar URL, cambiar acceso o eliminar; ↑/↓ y Enter lo manejan, Esc vuelve. Los atajos Ctrl+N/E/W/D funcionan también desde la lista. Todas las pantallas comparten cabecera, cuerpo separado y botones fijos; las confirmaciones distinguen conexión, consecuencias y Cancelar/Confirmar, con Tab o ←/→ para cambiar de botón. El formulario ofrece Por campos / Por URL (Ctrl+I), con URL y contraseña ocultas. El selector de motor muestra las cinco opciones en una pantalla propia: ↑/↓ y Enter, teclas 1–5 o clic; Esc descarta el cambio. Tab/Shift+Tab recorre campos/acciones, Enter avanza, Ctrl+Enter guarda y Ctrl+U vacía el campo. Cambiar conserva SQL y borrador, limpia resultados y no ejecuta consultas. Se bloquea mientras conecta/ejecuta. No se puede eliminar la activa ni la última conexión. La selección no modifica el `active` del próximo arranque.
 - **Consultas:** editor multilínea con números de línea, resaltado local, cursor, selección, pegado, deshacer y scroll. Foco inicial en el editor.
 - **Ejecutar:** **Ctrl+Enter** o clic en `[Ejecutar]` envía el buffer íntegro, no solo la selección. Enter normal añade una línea. En terminales que no distingan Ctrl+Enter, usa el botón. La ejecución está deshabilitada con SQL vacío, mientras conecta/ejecuta y por debajo del tamaño mínimo. Puedes editar durante la consulta: el resultado corresponde al texto capturado al lanzarla. No se encolan ejecuciones.
 - **Resultados:** columnas dinámicas y todos los conjuntos en orden; varias sentencias muestran `Resultado 1`, etc. Encabezados y filas comparten scroll horizontal/vertical. Clic selecciona una fila. Anchos entre 4 y 40 celdas por columna; valores largos se truncan. `NULL` distingue valores nulos; objetos usan JSON y controles se escapan. Cero filas muestra `Sin filas`; no se inventan columnas cuando DBHub no las proporciona.
@@ -38,7 +38,8 @@ Desde 80 columnas aparece el espacio del explorador; entre 40 y 79 se oculta. Po
 - `src/db/query.ts`: adaptador MCP tipado, errores seguros y timeout.
 - `src/tui/components/`: editor, resultados, borrador y separadores; el explorador activo usa metadatos de DBHub; el árbol reutilizable de fixtures queda para pruebas.
 - `src/tui/workspace-layout.ts` y `theme.ts`: layout, mínimos y paleta.
-- `src/tui/demo-data.ts`: fixtures del explorador y contenido local del asistente, no resultados activos de la aplicación.
+- `tests/tui/`: pruebas de interfaz, interacción y controladores, separadas de la aplicación.
+- `tests/fixtures/workspace.ts`: datos ficticios del explorador y resultados, exclusivos de las pruebas.
 
 ```sh
 bun run dev
