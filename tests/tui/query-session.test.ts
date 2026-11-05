@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createQueryController } from "./query-session";
-import { QueryError, type QuerySession, type QueryResult } from "../db";
+import { createQueryController } from "../../src/tui/query-session";
+import { QueryError, type QuerySession, type QueryResult } from "../../src/db";
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;

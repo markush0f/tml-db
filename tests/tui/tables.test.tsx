@@ -9,9 +9,9 @@ function find(node: Renderable, id: string): Renderable | undefined {
     if (found) return found;
   }
 }
-import { App } from "./app";
-import { createQueryController } from "./query-session";
-import { QueryError, type TableCatalog } from "../db";
+import { App } from "../../src/tui/app";
+import { createQueryController } from "../../src/tui/query-session";
+import { QueryError, type TableCatalog } from "../../src/db";
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {

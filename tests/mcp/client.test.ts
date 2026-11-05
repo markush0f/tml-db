@@ -8,9 +8,14 @@ import {
   getDefaultEnvironment,
   StdioClientTransport,
 } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { connectDbHub } from "./client";
-import { defaultDemoPath, initializeDemoDatabase, projectDirectory, sqliteDsn } from "../db/config";
-import { dbHubLaunch } from "./config";
+import { connectDbHub } from "../../src/mcp/client";
+import {
+  defaultDemoPath,
+  initializeDemoDatabase,
+  projectDirectory,
+  sqliteDsn,
+} from "../../src/db/config";
+import { dbHubLaunch } from "../../src/mcp/config";
 
 let directory: string;
 let dsn: string;
@@ -116,7 +121,7 @@ test("fallo de conexión acotado sin mostrar DSN ni contraseña", async () => {
 test("entrypoint stdio independiente funciona desde otro directorio y cierra el hijo", async () => {
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [fileURLToPath(new URL("./server.ts", import.meta.url))],
+    args: [fileURLToPath(new URL("../../src/mcp/server.ts", import.meta.url))],
     cwd: directory,
     env: {
       ...getDefaultEnvironment(),

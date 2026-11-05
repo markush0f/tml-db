@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createQueryController } from "./query-session";
-import type { QueryResult } from "../db";
+import { createQueryController } from "../../src/tui/query-session";
+import type { QueryResult } from "../../src/db";
 test("cambiar cierra antes de conectar, limpia resultados y no ejecuta SQL", async () => {
   const calls: string[] = [];
   const controller = createQueryController(async (name) => {

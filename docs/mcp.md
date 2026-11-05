@@ -87,6 +87,7 @@ Nunca incluyas credenciales en código, argumentos CLI o archivos versionados. E
 - `execute_sql`: solo lectura por defecto, máximo 200 filas devueltas.
 
 Si la conexión seleccionada tiene `write_enabled = true`, el launcher usa `config/dbhub-write.toml`, con `readonly = false`. Se permiten INSERT, UPDATE, DELETE y DDL sujetos a permisos de la base. El límite no acota filas modificadas. La TUI pide confirmación solo al habilitar este ajuste desde Ctrl+K → Ctrl+W, lo persiste y reconecta si afecta a la activa; no pide confirmación al ejecutar SQL. Editar el TOML es otra forma explícita de habilitarlo. Sin catálogo o con DSN explícita se mantiene solo lectura.
+
 - `search_objects`: inspección de esquemas, tablas, columnas e índices.
 - Timeout de conexión: 10 segundos; consulta: 30 segundos (DBHub no aplica timeout de consulta al driver SQLite).
 - El cliente limita la negociación inicial a 15 segundos, configurable con `timeoutMs`.
@@ -144,7 +145,7 @@ Sustituye la ruta por la de tu repositorio. No hace falta `mcp:start` si usas `c
 bun run typecheck
 bun run test:mcp
 # Opcional: requiere llavero disponible; crea y elimina una credencial temporal.
-TML_DB_TEST_KEYRING=1 bun test src/db/keyring.integration.test.ts
+TML_DB_TEST_KEYRING=1 bun test ./tests/db/keyring.integration.test.ts
 ```
 
 Las pruebas arrancan el DBHub real con SQLite temporal, sin usar tu DSN: negociación, herramientas, búsqueda de tablas, lectura de filas, rechazo de escrituras, límite de resultados, cierre y entrypoint desde otro directorio. No requieren red tras `bun install`.

@@ -1,6 +1,11 @@
 import { For, Show } from "solid-js";
-import type { SchemaPreview } from "../demo-data";
 import { fit, theme } from "../theme";
+
+export interface SchemaPreview {
+  readonly name: string;
+  readonly expanded: boolean;
+  readonly tables: readonly string[];
+}
 
 interface Props {
   readonly width: number;

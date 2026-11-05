@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createConnectionManager } from "./connection-manager";
-import { initializeDemoDatabase, sqliteDsn } from "./config";
-import { connectQuerySession } from "./query";
+import { createConnectionManager } from "../../src/db/connection-manager";
+import { initializeDemoDatabase, sqliteDsn } from "../../src/db/config";
+import { connectQuerySession } from "../../src/db/query";
 
 // Explicit opt-in: never prompt for the user's keyring in the normal test suite.
 const nativeTest = process.env.TML_DB_TEST_KEYRING === "1" ? test : test.skip;

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import type { Renderable, TextareaRenderable } from "@opentui/core";
-import { App } from "./app";
-import type { ConnectionManager, ConnectionSummary } from "../db/connection-manager";
+import { App } from "../../src/tui/app";
+import type { ConnectionManager, ConnectionSummary } from "../../src/db/connection-manager";
 
 type View = Awaited<ReturnType<typeof testRender>>;
 async function draw(view: View) {

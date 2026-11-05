@@ -7,8 +7,8 @@ import {
   parseTableCatalog,
   parseColumnCatalog,
   tablePreviewSql,
-} from "./query";
-import { initializeDemoDatabase, sqliteDsn } from "./config";
+} from "../../src/db/query";
+import { initializeDemoDatabase, sqliteDsn } from "../../src/db/config";
 const response = (data: unknown) => ({
   content: [{ type: "text", text: JSON.stringify({ success: true, data }) }],
 });

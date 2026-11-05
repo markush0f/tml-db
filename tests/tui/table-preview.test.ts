@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { QueryError, type QueryResult } from "../db";
-import { createQueryController } from "./query-session";
+import { QueryError, type QueryResult } from "../../src/db";
+import { createQueryController } from "../../src/tui/query-session";
 const table = { schema: "public", name: "users" };
 const result: QueryResult = {
   statements: [{ sql: "preview", columns: ["id"], rows: [[1]], count: 1, truncated: false }],

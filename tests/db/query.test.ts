@@ -3,9 +3,14 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { connectDbHub } from "../mcp/client";
-import { initializeDemoDatabase, sqliteDsn } from "./config";
-import { connectQuerySession, createQuerySession, parseQueryResult, QueryError } from "./query";
+import { connectDbHub } from "../../src/mcp/client";
+import { initializeDemoDatabase, sqliteDsn } from "../../src/db/config";
+import {
+  connectQuerySession,
+  createQuerySession,
+  parseQueryResult,
+  QueryError,
+} from "../../src/db/query";
 const response = (payload: unknown) => ({
   content: [{ type: "text", text: JSON.stringify(payload) }],
 });
@@ -108,8 +113,8 @@ test("escritura opt-in persistida: DDL, INSERT, UPDATE, DELETE y retorno a solo 
   const directory = await mkdtemp(join(tmpdir(), "tml-write-"));
   const path = join(directory, "test.sqlite");
   const catalog = join(directory, "connections.toml");
-  const { createConnectionManager } = await import("./connection-manager");
-  const { systemCredentials } = await import("./credentials");
+  const { createConnectionManager } = await import("../../src/db/connection-manager");
+  const { systemCredentials } = await import("../../src/db/credentials");
   const previous = systemCredentials.get;
   let session;
   try {

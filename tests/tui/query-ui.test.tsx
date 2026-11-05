@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectDbHub } from "../mcp/client";
-import { createQuerySession } from "../db/query";
-import { initializeDemoDatabase, sqliteDsn } from "../db/config";
+import { connectDbHub } from "../../src/mcp/client";
+import { createQuerySession } from "../../src/db/query";
+import { initializeDemoDatabase, sqliteDsn } from "../../src/db/config";
 import { testRender } from "@opentui/solid";
 import type { Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core";
-import { App } from "./app";
-import { ResultsPanel, safeCell } from "./components/ResultsPanel";
-import { QueryError, type QueryResult, type QuerySession } from "../db";
+import { App } from "../../src/tui/app";
+import { ResultsPanel, safeCell } from "../../src/tui/components/ResultsPanel";
+import { QueryError, type QueryResult, type QuerySession } from "../../src/db";
 type View = Awaited<ReturnType<typeof testRender>>;
 function find(view: View, id: string): Renderable {
   const visit = (node: Renderable): Renderable | undefined =>

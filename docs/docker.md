@@ -33,7 +33,7 @@ Las dos tienen tres usuarios ficticios. `SELECT * FROM users LIMIT 200;` funcion
 Tras `docker:up`, la prueba opcional recorre el selector, cambia entre ambos motores, comprueba tablas y consulta usuarios:
 
 ```sh
-TML_DB_TEST_DOCKER=1 bun test src/tui/docker.integration.test.tsx
+TML_DB_TEST_DOCKER=1 bun test ./tests/tui/docker.integration.test.tsx
 ```
 
 Las pruebas normales no arrancan Docker ni dependen de estas conexiones.

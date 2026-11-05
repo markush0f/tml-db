@@ -7,9 +7,9 @@ import {
   defaultConnectionsPath,
   loadConnectionCatalog,
   parseConnectionCatalog,
-} from "./connections";
-import { dbHubLaunch } from "../mcp/config";
-import { defaultDemoPath, projectDirectory, sqliteDsn } from "./config";
+} from "../../src/db/connections";
+import { dbHubLaunch } from "../../src/mcp/config";
+import { defaultDemoPath, projectDirectory, sqliteDsn } from "../../src/db/config";
 let directory: string;
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), "tml-connections-"));

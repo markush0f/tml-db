@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import type { Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core";
-import { App as RealApp } from "./app";
-import { type QuerySession, type QueryResult } from "../db";
+import { App as RealApp } from "../../src/tui/app";
+import { type QuerySession, type QueryResult } from "../../src/db";
 const sample: QueryResult = {
   durationMs: 2,
   statements: [
@@ -25,10 +25,10 @@ const fakeConnect = async (): Promise<QuerySession> => ({
   close: async () => {},
 });
 const App = () => <RealApp connect={fakeConnect} />;
-import { demoWorkspace } from "./demo-data";
-import { workspaceLayout } from "./workspace-layout";
-import { DatabaseSidebar } from "./components/DatabaseSidebar";
-import { ResultsPanel } from "./components/ResultsPanel";
+import { demoWorkspace } from "../fixtures/workspace";
+import { workspaceLayout } from "../../src/tui/workspace-layout";
+import { DatabaseSidebar } from "../../src/tui/components/DatabaseSidebar";
+import { ResultsPanel } from "../../src/tui/components/ResultsPanel";
 
 type View = Awaited<ReturnType<typeof testRender>>;
 async function draw(view: View) {

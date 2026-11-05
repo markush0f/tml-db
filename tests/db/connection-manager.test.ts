@@ -2,10 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createConnectionManager } from "./connection-manager";
-import { parseConnectionCatalog } from "./connections";
-import { dbHubLaunch } from "../mcp/config";
-import { systemCredentials, type CredentialStore } from "./credentials";
+import { createConnectionManager } from "../../src/db/connection-manager";
+import { parseConnectionCatalog } from "../../src/db/connections";
+import { dbHubLaunch } from "../../src/mcp/config";
+import { systemCredentials, type CredentialStore } from "../../src/db/credentials";
 const directories: string[] = [];
 afterEach(async () => {
   for (const dir of directories.splice(0)) await rm(dir, { recursive: true, force: true });

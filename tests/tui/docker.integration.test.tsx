@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import type { Renderable } from "@opentui/core";
-import { App } from "./app";
+import { App } from "../../src/tui/app";
 
 const dockerTest = process.env.TML_DB_TEST_DOCKER === "1" ? test : test.skip;
 dockerTest(

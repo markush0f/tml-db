@@ -10,7 +10,6 @@ import { QueryPanel } from "./components/QueryPanel";
 import { ResultsPanel, type RowSelection } from "./components/ResultsPanel";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ResizeHandle } from "./components/ResizeHandle";
-import { demoWorkspace } from "./demo-data";
 import { fit, theme } from "./theme";
 import {
   clamp,
@@ -439,7 +438,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
             <AssistantPanel
               height={layout().assistantHeight}
               width={layout().mainWidth}
-              message={demoWorkspace.assistantMessage}
+              message="Pregunta sobre tu base de datos"
               draft={draft()}
               focused={!tooSmall() && !picker() && focus() === "assistant"}
               onFocus={() => setFocus("assistant")}

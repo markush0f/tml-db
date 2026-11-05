@@ -1,8 +1,4 @@
-export interface SchemaPreview {
-  readonly name: string;
-  readonly expanded: boolean;
-  readonly tables: readonly string[];
-}
+import type { SchemaPreview } from "../../src/tui/components/DatabaseSidebar";
 
 export interface ResultPreview {
   readonly columns: readonly string[];

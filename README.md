@@ -7,6 +7,11 @@ src/
   tui/              Interfaz de terminal OpenTUI + SolidJS
   mcp/              Cliente MCP y lanzamiento del DBHub local
   db/               Conexiones, credenciales, configuración y consultas
+tests/
+  tui/              Pruebas de interfaz y controladores
+  mcp/              Pruebas del cliente y del servidor MCP
+  db/               Pruebas de conexiones, credenciales y consultas
+  fixtures/         Datos ficticios exclusivos de las pruebas
 config/dbhub.toml   Política de solo lectura (predeterminada)
 config/dbhub-write.toml  Política de escritura opt-in
 config/connections.toml  Conexiones locales y conexión activa (excluido de Git)
@@ -38,7 +43,10 @@ bun run typecheck   # Tipos de toda la aplicación
 bun test            # Todas las pruebas (también bun run test)
 bun run test:tui    # Solo interfaz
 bun run test:mcp    # Solo integración MCP
+bun run test:db     # Solo base de datos
 ```
+
+El código de aplicación vive en `src/`; las pruebas y sus datos ficticios, en `tests/`, organizadas por área. `bun test` y `bun run test` descubren las pruebas en `tests/` mediante `bunfig.toml`. `bun run typecheck` comprueba tanto la aplicación como las pruebas.
 
 `mcp:check` inicia y cierra su propio proceso DBHub; no requiere ejecutar `mcp:start` antes. Cada conexión por stdio tiene su propio servidor y no abre puertos.
 
