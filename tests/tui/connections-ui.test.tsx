@@ -25,9 +25,21 @@ function find(view: View, id: string): Renderable {
   return node;
 }
 async function click(view: View, id: string) {
+  if (["connection-edit", "connection-write", "connection-delete"].includes(id)) {
+    await click(view, "connection-more");
+  }
   const node = find(view, id);
   await view.mockMouse.click(node.x, node.y);
   return draw(view);
+}
+async function newUrlForm(view: View, name: string) {
+  await click(view, "connection-new");
+  await click(view, "connection-import");
+  view.mockInput.pressTab();
+  await draw(view);
+  await view.mockInput.typeText(name);
+  view.mockInput.pressTab({ shift: true });
+  await draw(view);
 }
 function setup() {
   let entries: ConnectionSummary[] = [
@@ -161,7 +173,10 @@ for (const width of [120, 40]) {
       const editor = find(view, "query-editor") as TextareaRenderable;
       const sql = editor.plainText;
       await click(view, "write-mode-toggle");
-      expect(await draw(view)).toContain("¿Habilitar escritura en demo?");
+      const confirmation = await draw(view);
+      expect(confirmation).toContain("Habilitar escritura");
+      expect(confirmation).toContain("demo");
+      expect(confirmation).toContain("Sin más");
       view.mockInput.pressEscape();
       expect(await draw(view)).not.toContain("Gestionar conexiones");
       expect(editor.focused).toBe(true);
@@ -247,10 +262,7 @@ test("registro oculto, sustitución, cancelación y eliminación con confirmaci�
     await draw(view);
     view.mockInput.pressKey("k", { ctrl: true });
     await draw(view);
-    await click(view, "connection-new");
-    await view.mockInput.typeText("prod");
-    view.mockInput.pressTab();
-    await draw(view);
+    await newUrlForm(view, "prod");
     const dsn = "postgres://alice:super-secret@localhost/db";
     await view.mockInput.pasteBracketedText(dsn);
     const frame = await draw(view);
@@ -276,10 +288,7 @@ test("registro oculto, sustitución, cancelación y eliminación con confirmaci�
     await click(view, "connection-delete");
     await click(view, "connection-confirm-delete");
     expect(fixture.removed).toEqual(["prod"]);
-    await click(view, "connection-new");
-    await view.mockInput.typeText("cancelled");
-    view.mockInput.pressTab();
-    await draw(view);
+    await newUrlForm(view, "cancelled");
     await view.mockInput.pasteBracketedText(dsn);
     view.mockInput.pressEscape();
     await draw(view);
@@ -290,6 +299,184 @@ test("registro oculto, sustitución, cancelación y eliminación con confirmaci�
     view.renderer.destroy();
   }
 });
+for (const [width, height] of [
+  [120, 30],
+  [80, 24],
+  [40, 20],
+] as const) {
+  test(`formulario ${width}×${height}: jerarquía, límites, foco y URL oculta`, async () => {
+    const fixture = setup();
+    const view = await testRender(
+      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      { width, height, useMouse: true },
+    );
+    try {
+      await draw(view);
+      view.mockInput.pressKey("k", { ctrl: true });
+      await draw(view);
+      await newUrlForm(view, "production");
+      const picker = find(view, "connection-picker");
+      expect(picker.width).toBe(Math.min(104, width - 4));
+      expect(picker.height).toBe(height - 2);
+      expect(find(view, "connection-name").height).toBe(3);
+      expect(find(view, "connection-secret").height).toBe(3);
+      expect(find(view, "connection-save").height).toBe(3);
+      const dsn = "postgres://alice:secret@localhost/production";
+      await view.mockInput.pasteBracketedText(dsn);
+      const frame = await draw(view);
+      expect(frame).toContain("URL de conexión · oculta");
+      expect(frame).toContain("Cancelar");
+      expect(frame).toContain("***");
+      expect(frame).not.toContain("alice");
+      expect(frame).not.toContain("secret");
+      expect(find(view, "connection-cancel").y + 3).toBeLessThanOrEqual(height - 1);
+      view.mockInput.pressTab();
+      await draw(view);
+      expect(await draw(view)).toContain("Nombre de la conexión");
+      view.mockInput.pressTab();
+      view.mockInput.pressTab();
+      view.mockInput.pressTab({ shift: true });
+      view.mockInput.pressEnter();
+      await draw(view);
+      expect(fixture.saved).toEqual([["production", dsn, "false"]]);
+    } finally {
+      view.renderer.destroy();
+    }
+  });
+}
+
+test("formulario: conserva datos al reducir terminal y muestra errores sin revelar URL", async () => {
+  const fixture = setup();
+  fixture.manager.save = async () => {
+    throw new Error("No se pudo guardar en el llavero.");
+  };
+  const view = await testRender(
+    () => <App connect={fixture.connect} connections={fixture.manager} />,
+    { width: 120, height: 30, useMouse: true },
+  );
+  try {
+    await draw(view);
+    view.mockInput.pressKey("k", { ctrl: true });
+    await draw(view);
+    await newUrlForm(view, "prod");
+    await view.mockInput.pasteBracketedText("postgres://private@localhost/db");
+    view.resize(40, 20);
+    let frame = await draw(view);
+    expect(frame).toContain("***");
+    await click(view, "connection-save");
+    frame = await draw(view);
+    expect(frame).toContain("No se pudo guardar");
+    expect(frame).toContain("llavero.");
+    expect(frame).toContain("Cancelar");
+    expect(frame).not.toContain("private");
+    expect(frame).not.toContain("***");
+    expect(find(view, "connection-picker").height).toBeLessThanOrEqual(18);
+    await click(view, "connection-cancel");
+    expect(await draw(view)).toContain("Gestionar conexiones");
+  } finally {
+    view.renderer.destroy();
+  }
+});
+
+for (const [width, height] of [
+  [120, 42],
+  [80, 24],
+  [40, 20],
+] as const) {
+  test(`campos ${width}×${height}: motor, navegación, contraseña oculta y guardado real`, async () => {
+    const fixture = setup();
+    const view = await testRender(
+      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      { width, height, useMouse: true },
+    );
+    try {
+      await draw(view);
+      view.mockInput.pressKey("k", { ctrl: true });
+      await draw(view);
+      await click(view, "connection-new");
+      const initial = await draw(view);
+      expect(initial).toContain("Tipo de conexión");
+      expect(initial).not.toContain("SSL");
+      expect(initial).not.toContain("SSH");
+      expect(initial).toContain("Guardar");
+      view.mockInput.pressArrow("right");
+      view.mockInput.pressTab();
+      await draw(view);
+      view.mockInput.pressKey("u", { ctrl: true });
+      await view.mockInput.typeText("db.local");
+      view.mockInput.pressTab();
+      await draw(view);
+      expect(await draw(view)).toContain("3306");
+      view.mockInput.pressTab();
+      await draw(view);
+      await view.mockInput.typeText("alice");
+      view.mockInput.pressTab();
+      await draw(view);
+      await view.mockInput.pasteBracketedText("p@ssword");
+      let frame = await draw(view);
+      expect(frame).toContain("********");
+      expect(frame).not.toContain("p@ssword");
+      view.mockInput.pressTab();
+      await draw(view);
+      await view.mockInput.typeText("app");
+      view.mockInput.pressTab();
+      await draw(view);
+      await view.mockInput.typeText("mysql-prod");
+      frame = await draw(view);
+      expect(frame).toContain("Nombre de la conexión");
+      expect(frame).toContain("mysql-prod");
+      expect(frame).toContain("Cancelar");
+      view.mockInput.pressTab();
+      view.mockInput.pressEnter();
+      await draw(view);
+      expect(fixture.saved).toEqual([
+        ["mysql-prod", "mysql://alice:p%40ssword@db.local:3306/app", "false"],
+      ]);
+      expect(fixture.connected).toEqual([undefined]);
+    } finally {
+      view.renderer.destroy();
+    }
+  });
+}
+
+test("selector de motor con ratón, SQLite sin campos de red y cancelación limpia", async () => {
+  const fixture = setup();
+  const view = await testRender(
+    () => <App connect={fixture.connect} connections={fixture.manager} />,
+    { width: 120, height: 42, useMouse: true },
+  );
+  try {
+    await draw(view);
+    view.mockInput.pressKey("k", { ctrl: true });
+    await draw(view);
+    await click(view, "connection-new");
+    await click(view, "connection-engine");
+    await click(view, "connection-engine-sqlite");
+    let frame = await draw(view);
+    expect(frame).toContain("Archivo SQLite");
+    expect(frame).not.toContain("Contraseña");
+    expect(frame).not.toContain("Puerto");
+    view.mockInput.pressTab();
+    await draw(view);
+    await view.mockInput.typeText("/tmp/app.sqlite");
+    view.mockInput.pressTab();
+    await draw(view);
+    await view.mockInput.typeText("sqlite-dev");
+    await click(view, "connection-save");
+    expect(fixture.saved).toEqual([["sqlite-dev", "sqlite:///tmp/app.sqlite", "false"]]);
+    await newUrlForm(view, "cancelled");
+    await view.mockInput.pasteBracketedText("mysql://private@localhost/db");
+    await click(view, "connection-cancel");
+    await click(view, "connection-new");
+    await click(view, "connection-import");
+    frame = await draw(view);
+    expect(frame).not.toContain("***");
+    expect(frame).not.toContain("private");
+  } finally {
+    view.renderer.destroy();
+  }
+});
+
 test("no permite eliminar la conexión activa y aísla Ctrl+Enter del editor", async () => {
   const fixture = setup();
   const view = await testRender(
