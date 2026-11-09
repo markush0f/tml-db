@@ -30,6 +30,7 @@ export async function connectDbHub(options: DbHubOptions = {}) {
   return {
     client,
     writeEnabled: launch.writeEnabled,
+    engine: launch.engine,
     sqlDialect: launch.sqlDialect,
     pid: transport.pid,
     close,

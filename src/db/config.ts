@@ -10,6 +10,22 @@ export const projectDirectory = fileURLToPath(new URL("../../", import.meta.url)
 export const defaultDemoPath = resolve(projectDirectory, "data/dbhub/demo.sqlite");
 const execFileAsync = promisify(execFile);
 
+export type DatabaseEngine = "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle" | "sqlite";
+
+export function databaseEngine(dsn: string): DatabaseEngine | undefined {
+  const scheme = /^([a-z]+):/i.exec(dsn)?.[1]?.toLowerCase();
+  if (scheme === "postgresql" || scheme === "postgres") return "postgres";
+  if (
+    scheme === "mysql" ||
+    scheme === "mariadb" ||
+    scheme === "sqlserver" ||
+    scheme === "oracle" ||
+    scheme === "sqlite"
+  )
+    return scheme;
+  return undefined;
+}
+
 export interface DbHubOptions {
   readonly dsn?: string;
   readonly connectionName?: string;

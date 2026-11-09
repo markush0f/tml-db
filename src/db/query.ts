@@ -1,7 +1,7 @@
 import { stripVTControlCharacters } from "node:util";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { connectDbHub } from "../mcp/client";
-import type { DbHubOptions } from "./config";
+import { type DatabaseEngine, type DbHubOptions } from "./config";
 
 export interface QueryTable {
   readonly sql: string;
@@ -32,6 +32,7 @@ export interface ColumnCatalog {
 }
 export interface QuerySession {
   readonly writeEnabled?: boolean;
+  readonly engine?: DatabaseEngine;
   /** Optional for custom sessions without schema discovery. DBHub sessions always provide it. */
   listTables?(): Promise<TableCatalog>;
   listColumns?(table: DatabaseTable): Promise<ColumnCatalog>;
@@ -190,6 +191,7 @@ export function parseColumnCatalog(response: unknown): ColumnCatalog {
 }
 
 export type SqlDialect = "ansi" | "mysql" | "sqlserver" | "oracle";
+export type { DatabaseEngine } from "./config";
 export function tablePreviewSql(table: DatabaseTable, dialect: SqlDialect = "ansi"): string {
   const quote = (name: string) =>
     dialect === "mysql"
@@ -303,6 +305,7 @@ export async function connectQuerySession(options: DbHubOptions = {}): Promise<Q
     return {
       ...createQuerySession(connection, undefined, connection.sqlDialect),
       writeEnabled: connection.writeEnabled,
+      engine: connection.engine,
     };
   } catch (error) {
     await connection?.close().catch(() => {});

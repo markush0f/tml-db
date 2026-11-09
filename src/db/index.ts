@@ -1,4 +1,6 @@
 export { connectQuerySession, QueryError, tablePreviewSql } from "./query";
+export { databaseEngine } from "./config";
+export type { DatabaseEngine } from "./config";
 export type {
   QueryTable,
   QueryResult,

@@ -1,7 +1,12 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { projectDirectory, resolveDatabaseConfig, type DbHubOptions } from "../db/config";
+import {
+  databaseEngine,
+  projectDirectory,
+  resolveDatabaseConfig,
+  type DbHubOptions,
+} from "../db/config";
 
 export type { DbHubOptions } from "../db/config";
 
@@ -9,6 +14,7 @@ export async function dbHubLaunch(options: DbHubOptions = {}) {
   const { dsn, writeEnabled } = await resolveDatabaseConfig(options);
   return {
     writeEnabled,
+    engine: databaseEngine(dsn),
     sqlDialect: /^(mysql|mariadb):/i.test(dsn)
       ? ("mysql" as const)
       : /^sqlserver:/i.test(dsn)

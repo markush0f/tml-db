@@ -6,6 +6,7 @@ import {
   type QuerySession,
   type TableCatalog,
   type DatabaseTable,
+  type DatabaseEngine,
   type ColumnCatalog,
 } from "../db";
 
@@ -40,6 +41,7 @@ export function createQueryController(connect: SessionFactory) {
   }>(emptyTables);
   const emptyColumns: ColumnState = { table: null, status: "idle", catalog: null };
   const [columns, setColumns] = createSignal<ColumnState>(emptyColumns);
+  const [engine, setEngine] = createSignal<DatabaseEngine | undefined>();
   let columnRequest = 0;
   function clearColumns() {
     columnRequest++;
@@ -129,6 +131,7 @@ export function createQueryController(connect: SessionFactory) {
     session = undefined;
     clearColumns();
     setTables(emptyTables);
+    setEngine(undefined);
     setState({
       connection: "connecting",
       query: "idle",
@@ -153,6 +156,7 @@ export function createQueryController(connect: SessionFactory) {
           connection: "ready",
           writeEnabled: acquired.writeEnabled === true,
         }));
+        setEngine(acquired.engine);
         void refreshTables();
       } catch {
         if (!disposed)
@@ -210,6 +214,7 @@ export function createQueryController(connect: SessionFactory) {
       const disconnected = safe.code === "connection" || safe.code === "timeout";
       if (disconnected) {
         session = undefined;
+        setEngine(undefined);
         setTables(emptyTables);
         clearColumns();
         await current.close().catch(() => {});
@@ -239,6 +244,7 @@ export function createQueryController(connect: SessionFactory) {
   }
   return {
     state,
+    engine,
     tables,
     refreshTables,
     columns,
