@@ -6,7 +6,7 @@ Modo: Operate. Espacio SQL de terminal con edición y resultados reales mediante
 
 Conservar el boceto: lateral estrecho y tres regiones apiladas a la derecha. Negro y amarillo existentes, celdas de terminal, gris para jerarquía, marco redondeado y separadores únicos. Foco y arrastre amarillos. Sin tarjetas, nuevas fuentes, imágenes ni animación.
 
-Cabecera con estado seguro DBHub local y Salir siempre visible; pie de ayuda. Lateral inicial de 26/22 columnas: conexión arriba y tablas reales debajo, agrupadas por esquema, con recuento, scroll, Actualizar y estados de carga/vacío/error/lista parcial. Máximo 1000 tablas mediante search_objects, sin leer filas. Editor sobre resultados y asistente; mínimos de cuatro/cinco/tres filas y separadores arrastrables. Vista compacta sin lateral; aviso bajo 40×20, donde no se permite ejecutar.
+Cabecera única con selector de conexión por nombre, estado no interactivo y Salir siempre visible; regla separadora y pie de ayuda. Modo de acceso explícito, incluso en compacto; Escritura habilitada destacada como advertencia. Actualizar junto a EXPLORADOR, Ejecutar/Reconectar con Ctrl+Enter junto al título SQL; solo la acción del editor lleva fondo amarillo. Lateral inicial de 26/22 columnas: conexión arriba y tablas reales debajo, agrupadas por esquema, con recuento, scroll, Actualizar y estados de carga/vacío/error/lista parcial. Máximo 1000 tablas mediante search_objects, sin leer filas. Editor sobre resultados y asistente; mínimos de cuatro/cinco/tres filas y separadores arrastrables. Vista compacta sin lateral; aviso bajo 40×20, donde no se permite ejecutar.
 
 ## Flujo y estados
 

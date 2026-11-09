@@ -27,7 +27,32 @@ bun.lock           Versiones fijadas
 
 - Bun >= 1.3.14 (en Windows ARM64, >= 1.4.0).
 - Node.js >= 22.5.0 para DBHub y su driver SQLite nativo. Disponible como `node`.
+- Una terminal con fuente monoespaciada. Los iconos predeterminados son símbolos Unicode básicos, sin fuentes especiales.
 - No se necesita Docker ni una base de datos externa para probar la conexión.
+
+## Iconos
+
+El catálogo centralizado en `src/tui/icons.ts` sigue el enfoque de [LazyDB](https://github.com/yelog/lazydb/blob/main/src/ui/icons.rs). Se aplica a los nombres de conexiones, motores y tablas, cabecera, menús, confirmaciones, formularios, paneles y acciones. Cada modo incluye también búsqueda, ejecución, guardado, edición, borrado y modo de acceso; los iconos acompañan al texto sin alterar nombres, SQL ni credenciales.
+
+Iconos de objetos:
+
+| Modo                       | Base de datos | Esquema | Tabla | Campo | Fila |
+| -------------------------- | ------------- | ------- | ----- | ----- | ---- |
+| `nerd-font`                |              |        |      |      |     |
+| `unicode` (predeterminado) | ◆             | ◇       | ▦     | │     | ≡    |
+| `ascii`                    | DB            | SC      | TB    | CL    | RW   |
+
+El modo predeterminado usa símbolos básicos Unicode (◆, ◇, ▦, │ y ≡). El modo opcional `nerd-font` utiliza glifos del [cheat sheet oficial de Nerd Fonts](https://www.nerdfonts.com/cheat-sheet): `nf-fa-database` (F1C0), `nf-cod-symbol_namespace` (EA8B), `nf-fa-table` (F0CE), `nf-cod-symbol_field` (EB5F) y `nf-cod-list_selection` (EB85). Se usa el rango privado básico, no los glifos suplementarios de Material Design. **Necesitas una Nerd Font Mono instalada y seleccionada en la terminal** para verlos. Puedes descargarla desde [Nerd Fonts](https://www.nerdfonts.com/font-downloads), instalar los `.ttf` y elegirla en las preferencias de tu terminal. La aplicación no detecta, descarga ni configura fuentes automáticamente.
+
+```sh
+bun run start                       # Unicode básico por defecto
+bun run start --icons nerd-font     # Opcional, requiere Nerd Fonts
+bun run start --icons ascii         # Etiquetas ASCII
+bun run dev --icons=unicode         # También en desarrollo
+bun run start --help
+```
+
+La opción cambia solo los iconos de objetos; los marcos y separadores de la TUI conservan sus líneas Unicode. No se cambia la configuración de la terminal ni se usan variables de entorno para los iconos.
 
 ## Comandos desde la raíz
 
