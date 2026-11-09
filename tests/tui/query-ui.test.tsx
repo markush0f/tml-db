@@ -6,6 +6,7 @@ import { connectDbHub } from "../../src/mcp/client";
 import { createQuerySession } from "../../src/db/query";
 import { initializeDemoDatabase, sqliteDsn } from "../../src/db/config";
 import { testRender } from "@opentui/solid";
+import { createSignal } from "solid-js";
 import type { Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core";
 import { App } from "../../src/tui/app";
 import { ResultsPanel, safeCell } from "../../src/tui/components/ResultsPanel";
@@ -187,6 +188,56 @@ test("conexión fallida ofrece reconectar y no filtra excepciones", async () => 
     await view.dispose();
   }
 });
+test("la tabla ocupa el ancho del visor y se adapta al redimensionar", async () => {
+  const [width, setWidth] = createSignal(120);
+  const view = await testRender(
+    () => (
+      <ResultsPanel
+        width={width()}
+        height={18}
+        results={{
+          durationMs: 1,
+          statements: [
+            {
+              sql: "SELECT",
+              columns: ["id", "name"],
+              rows: [
+                [1, "Ana"],
+                [2, "Luis"],
+              ],
+              count: 2,
+              truncated: false,
+            },
+          ],
+        }}
+        focused
+        selectedRow={null}
+        onFocus={() => {}}
+        onSelectRow={() => {}}
+      />
+    ),
+    { width: 120, height: 20 },
+  );
+  try {
+    for (const size of [120, 80, 40, 160]) {
+      view.resize(size, 20);
+      setWidth(size);
+      await draw(view);
+      await draw(view);
+      const scroll = find(view, "result-rows") as ScrollBoxRenderable;
+      for (const index of [0, 1]) {
+        const row = find(view, `result-row-0-${index}`);
+        expect(row.width).toBe(scroll.viewport.width);
+        expect(row.x + row.width).toBe(scroll.viewport.x + scroll.viewport.width);
+      }
+      expect(scroll.scrollLeft).toBe(0);
+      expect(view.captureCharFrame()).toContain("Ana");
+    }
+  } finally {
+    await view.dispose();
+  }
+});
+
 test("resultados anchos, múltiples, vacíos y celdas seguras con scroll horizontal", async () => {
   const columns = Array.from({ length: 8 }, (_, i) => `column_${i}`);
   const data: QueryResult = {

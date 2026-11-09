@@ -1,5 +1,7 @@
 import type { TextareaRenderable } from "@opentui/core";
 import { fit, theme } from "../theme";
+import { icons } from "../icons";
+import { PanelHeading } from "./PanelHeading";
 
 interface Props {
   readonly height: number;
@@ -19,6 +21,7 @@ export function AssistantPanel(props: Props) {
       height={props.height}
       flexShrink={0}
       flexDirection="column"
+      backgroundColor={theme.background}
       paddingLeft={1}
       paddingRight={1}
       overflow="hidden"
@@ -26,16 +29,18 @@ export function AssistantPanel(props: Props) {
         if (event.button === 0) props.onFocus();
       }}
     >
-      <text
-        height={1}
-        flexShrink={0}
-        fg={props.focused ? theme.accent : theme.text}
-        selectable={false}
+      <PanelHeading
+        label="Asistente LLM"
+        icon={icons.assistant}
+        focused={props.focused}
+        width={props.width}
       >
-        <b>Asistente LLM</b>
-      </text>
+        <text height={1} fg={theme.muted} selectable={false} wrapMode="none">
+          {` ${icons.edit} BORRADOR`}
+        </text>
+      </PanelHeading>
       <text height={1} flexShrink={0} wrapMode="none" fg={theme.muted} selectable={false}>
-        {fit("Vista previa · Modelo no conectado", props.width - 2)}
+        {fit(`${icons.warning} Modelo no conectado`, props.width - 2)}
       </text>
       <textarea
         id="assistant-editor"
@@ -48,8 +53,8 @@ export function AssistantPanel(props: Props) {
         width="100%"
         textColor={theme.text}
         placeholderColor={theme.muted}
-        backgroundColor={theme.surface}
-        focusedBackgroundColor={theme.surface}
+        backgroundColor={theme.background}
+        focusedBackgroundColor={theme.background}
         focusedTextColor={theme.text}
         selectionBg={theme.selected}
         selectionFg={theme.accent}

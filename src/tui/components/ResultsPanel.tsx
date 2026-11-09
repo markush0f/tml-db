@@ -1,7 +1,9 @@
-import { For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import { measureEditText } from "@opentui/core";
 import type { QueryResult, QueryTable } from "../../db";
+import { icons } from "../icons";
 import { theme } from "../theme";
+import { PanelHeading } from "./PanelHeading";
 
 export interface RowSelection {
   readonly statementIndex: number;
@@ -47,12 +49,21 @@ function fitCell(text: string, width: number) {
   }
   return output + "…" + " ".repeat(Math.max(0, width - 1 - cellWidth(output)));
 }
-function tableView(table: QueryTable) {
-  const columns = table.columns.map(safeCell);
-  const rows = table.rows.map((row) => row.map(safeCell));
+function tableView(table: QueryTable, availableWidth: number) {
+  const columns = [" ", ...table.columns.map((column) => `${icons.column} ${safeCell(column)}`)];
+  const rows = table.rows.map((row) => [icons.row, ...row.map(safeCell)]);
   const widths = columns.map((column, i) =>
     Math.min(40, Math.max(4, cellWidth(column), ...rows.map((row) => cellWidth(row[i] ?? "")))),
   );
+  // Keep the row marker compact; spread unused space across the data columns.
+  const naturalWidth = widths.reduce((sum, width) => sum + width + 3, 0) + 1;
+  const extra = Math.max(0, availableWidth - naturalWidth);
+  const dataColumns = widths.length - 1;
+  if (dataColumns > 0) {
+    for (let i = 1; i < widths.length; i++) {
+      widths[i]! += Math.floor(extra / dataColumns) + (i <= extra % dataColumns ? 1 : 0);
+    }
+  }
   const rowText = (cells: readonly string[]) =>
     `│ ${widths.map((width, i) => fitCell(cells[i] ?? "", width)).join(" │ ")} │`;
   const rule = (left: string, middle: string, right: string) =>
@@ -67,8 +78,12 @@ function tableView(table: QueryTable) {
   };
 }
 export function ResultsPanel(props: Props) {
-  const tables = () => props.results?.statements.map(tableView) ?? [];
-  const contentWidth = () => Math.max(1, props.width - 4, ...tables().map((table) => table.width));
+  // Panel padding takes two cells; the vertical scrollbar takes one.
+  const availableWidth = () => Math.max(1, props.width - 3);
+  const tables = createMemo(
+    () => props.results?.statements.map((table) => tableView(table, availableWidth())) ?? [],
+  );
+  const contentWidth = () => Math.max(availableWidth(), ...tables().map((table) => table.width));
   const summary = () =>
     props.results
       ? ` · ${props.results.statements.reduce((sum, table) => sum + table.rows.length, 0)} filas · ${Math.round(props.results.durationMs)} ms`
@@ -80,6 +95,7 @@ export function ResultsPanel(props: Props) {
       height={props.height}
       flexShrink={0}
       flexDirection="column"
+      backgroundColor={theme.background}
       paddingLeft={1}
       paddingRight={1}
       overflow="hidden"
@@ -87,19 +103,14 @@ export function ResultsPanel(props: Props) {
         if (event.button === 0) props.onFocus();
       }}
     >
-      <text
-        height={1}
-        flexShrink={0}
-        wrapMode="none"
-        selectable={false}
-        fg={props.focused ? theme.accent : theme.text}
-      >
-        <b>Resultados</b>
-        <span style={{ fg: theme.accent }}>
-          {props.tableName ? ` · ${safeCell(props.tableName)}` : ""}
-        </span>
-        <span style={{ fg: theme.muted }}>{summary()}</span>
-      </text>
+      <PanelHeading label="Resultados" icon={icons.row} focused={props.focused} width={props.width}>
+        <text height={1} flexShrink={1} minWidth={0} wrapMode="none" selectable={false}>
+          <span style={{ fg: theme.accent }}>
+            {props.tableName ? `· ${icons.table} ${safeCell(props.tableName)}` : ""}
+          </span>
+          <span style={{ fg: theme.muted }}>{summary()}</span>
+        </text>
+      </PanelHeading>
       <Show when={props.tableName}>
         <text height={1} flexShrink={0} fg={theme.muted} wrapMode="none">
           Vista previa · hasta 200 filas
@@ -111,11 +122,21 @@ export function ResultsPanel(props: Props) {
         minHeight={0}
         scrollX
         scrollY
+        verticalScrollbarOptions={{ visible: true }}
         focused={props.focused}
         contentOptions={{ flexDirection: "column", minWidth: contentWidth() }}
+        scrollbarOptions={{
+          trackOptions: { foregroundColor: theme.border, backgroundColor: theme.background },
+        }}
       >
         <Show when={props.message}>
-          <text width={Math.max(1, props.width - 4)} fg={theme.muted}>
+          <text
+            width={Math.max(1, props.width - 4)}
+            height={props.results ? 1 : Math.max(1, props.height - 2)}
+            paddingTop={props.results ? 0 : Math.max(0, Math.floor((props.height - 6) / 2))}
+            textAlign="center"
+            fg={theme.muted}
+          >
             {props.message}
           </text>
         </Show>
@@ -191,7 +212,7 @@ export function ResultsPanel(props: Props) {
                         props.selectedRow?.statementIndex === statementIndex() &&
                         props.selectedRow.rowIndex === rowIndex()
                           ? theme.selected
-                          : theme.surface
+                          : theme.background
                       }
                       onMouseDown={(event) => {
                         if (event.button === 0)

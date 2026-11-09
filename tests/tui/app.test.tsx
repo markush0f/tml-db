@@ -1,7 +1,13 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
-import type { Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core";
+import {
+  measureEditText,
+  type Renderable,
+  type TextareaRenderable,
+  type ScrollBoxRenderable,
+} from "@opentui/core";
 import { App as RealApp } from "../../src/tui/app";
+import { configureIcons, iconSets } from "../../src/tui/icons";
 import { type QuerySession, type QueryResult } from "../../src/db";
 const sample: QueryResult = {
   durationMs: 2,
@@ -51,7 +57,9 @@ function find(view: View, id: string): Renderable {
 function expectBounds(frame: string, width: number, height: number) {
   const lines = frame.trimEnd().split("\n");
   expect(lines.length).toBeLessThanOrEqual(height);
-  for (const line of lines) expect(Array.from(line).length).toBeLessThanOrEqual(width);
+  for (const line of lines) {
+    expect(measureEditText(line, { widthMethod: "wcwidth" })).toBeLessThanOrEqual(width);
+  }
 }
 async function click(view: View, id: string, dx = 0, dy = 0) {
   const node = find(view, id);
@@ -91,15 +99,15 @@ for (const [width, height] of [
         expect(frame).not.toContain("Consultas");
       } else {
         for (const text of [
-          "DBHub local",
-          "Consultas",
+          "Solo lectura",
+          " SQL ",
           "SELECT * FROM users LIMIT 200;",
           "Resultados",
           "Ejecuta una consulta",
           "Asistente LLM",
           "Modelo no conectado",
-          "[Salir]",
-          "[Ejecutar]",
+          " Salir]",
+          "Ejecutar  Ctrl+Enter",
         ])
           expect(frame).toContain(text);
         expect(frame).not.toContain("Ana");
@@ -107,12 +115,13 @@ for (const [width, height] of [
         expect(frame).toContain("╭");
         expect(frame).toContain("╯");
         if (width >= 80) {
+          expect(frame).toContain("EXPLORADOR");
           expect(frame).toContain("ENTIDADES · 1");
           expect(frame).not.toContain("pg_catalog");
         } else {
           expect(frame).not.toContain("Entidades");
           expect(frame).not.toContain("example.com");
-          expect(frame).toContain("DBHub local");
+          expect(frame).toContain("Solo lectura");
         }
         const resultLines = frame.split("\n").filter((line) => /Ana|Luis|Marta/.test(line));
         expect(resultLines).toHaveLength(0);
@@ -122,6 +131,34 @@ for (const [width, height] of [
     }
   });
 }
+
+test("título SQL sin fondo de acción y ayuda contextual siguen el foco", async () => {
+  const view = await testRender(() => <App />, { width: 120, height: 40, useMouse: true });
+  try {
+    const frame = await draw(view);
+    const lines = frame.split("\n");
+    const tab = lines.findIndex((line) => line.includes(" SQL "));
+    expect(lines[tab]).toContain("Ejecutar  Ctrl+Enter");
+    expect(lines[tab + 1]).toContain("╭─");
+    expect(frame).not.toContain("SQL EDITOR");
+    expect(frame).not.toContain("DBHub local");
+    expect(frame).not.toContain("Selecciona, crea");
+    expect(frame).toContain("Ctrl+Enter ejecutar");
+    expect(find(view, "workspace-mode").height).toBe(1);
+
+    view.mockInput.pressTab();
+    expect(await draw(view)).toContain("↑/↓ desplazar · clic seleccionar");
+    expect(view.renderer.currentFocusedRenderable?.id).toBe("result-rows");
+    view.mockInput.pressTab();
+    expect(await draw(view)).toContain("Texto local · sin envío");
+    expect(view.renderer.currentFocusedRenderable?.id).toBe("assistant-editor");
+    view.mockInput.pressTab();
+    expect(await draw(view)).toContain("Ctrl+Enter ejecutar");
+    expect(view.renderer.currentFocusedRenderable?.id).toBe("query-editor");
+  } finally {
+    await view.dispose();
+  }
+});
 
 test("edición SQL, q como texto, saltos de línea, pegado y deshacer", async () => {
   const view = await testRender(() => <App />, { width: 120, height: 40, useMouse: true });
@@ -417,3 +454,26 @@ test("layout respeta mínimos y suma las filas disponibles", () => {
     }
   expect(demoWorkspace.results.rows).toHaveLength(3);
 });
+
+for (const mode of ["nerd-font", "unicode", "ascii"] as const) {
+  for (const width of [80, 120]) {
+    test(`iconos ${mode}: explorador y resultados en ${width} columnas`, async () => {
+      configureIcons(mode);
+      const view = await testRender(() => <App />, { width, height: 30, useMouse: true });
+      try {
+        let frame = await draw(view);
+        expectBounds(frame, width, 30);
+        expect(frame).toContain(`${iconSets[mode].table} ENTIDADES`);
+        expect(frame).toContain(`${iconSets[mode].schema} main`);
+        await click(view, "execute-button");
+        frame = await draw(view);
+        expectBounds(frame, width, 30);
+        expect(frame).toContain(`${iconSets[mode].column} id`);
+        expect(frame).toContain(iconSets[mode].row);
+      } finally {
+        view.renderer.destroy();
+        configureIcons("nerd-font");
+      }
+    });
+  }
+}

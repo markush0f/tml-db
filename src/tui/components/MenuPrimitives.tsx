@@ -1,4 +1,5 @@
-import { Show, type JSX } from "solid-js";
+import { createSignal, Show, type JSX } from "solid-js";
+import { WorkspaceButton } from "./WorkspaceButton";
 import { fit, theme } from "../theme";
 
 /** Shared chrome: title, breathing room, scroll-safe body and a fixed action footer. */
@@ -6,6 +7,7 @@ export function MenuFrame(props: {
   width: number;
   height: number;
   title: string;
+  icon?: string;
   description: string;
   children: JSX.Element;
   footer: JSX.Element;
@@ -31,23 +33,15 @@ export function MenuFrame(props: {
       <box id="menu-heading" height={3} flexShrink={0} paddingTop={1} flexDirection="column">
         <box height={1} flexShrink={0} flexDirection="row" gap={1}>
           <text height={1} flexGrow={1} wrapMode="none" fg={theme.accent}>
-            <b>{fit(props.title, textWidth() - 5)}</b>
+            <b>{fit(`${props.icon ? `${props.icon} ` : ""}${props.title}`, textWidth() - 6)}</b>
           </text>
-          <text
+          <WorkspaceButton
             id="connection-close"
-            height={1}
-            width={3}
-            selectable={false}
-            fg={props.closeFocused ? theme.accent : theme.muted}
-            bg={props.closeFocused ? theme.selected : theme.surface}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (event.button === 0) props.onClose();
-            }}
-          >
-            Esc
-          </text>
+            label="Esc"
+            width={5}
+            focused={props.closeFocused}
+            onPress={props.onClose}
+          />
         </box>
         <text height={1} flexShrink={0} wrapMode="none" fg={theme.muted}>
           {fit(props.description, textWidth())}
@@ -85,32 +79,44 @@ export function MenuFrame(props: {
 export function MenuButton(props: {
   id: string;
   label: string;
+  icon?: string;
   shortcut?: string;
   primary?: boolean;
   focused?: boolean;
   disabled?: boolean;
   onPress: () => void;
 }) {
+  const [hovered, setHovered] = createSignal(false);
+  const active = () => !props.disabled && (props.focused || hovered());
   return (
     <box
       id={props.id}
       height={3}
-      flexShrink={0}
+      flexShrink={1}
       flexGrow={1}
-      flexBasis={0}
+      flexBasis={
+        props.label.length +
+        (props.icon ? props.icon.length + 1 : 0) +
+        (props.shortcut ? props.shortcut.length + 3 : 0) +
+        2
+      }
       border
       borderColor={
-        props.focused || (props.primary && !props.disabled) ? theme.accent : theme.border
+        props.disabled ? theme.selected : active() || props.primary ? theme.accent : theme.border
       }
       backgroundColor={
         props.primary && !props.disabled
           ? theme.accent
-          : props.focused
-            ? theme.selected
-            : theme.surface
+          : active()
+            ? theme.border
+            : props.disabled
+              ? theme.surface
+              : theme.selected
       }
       alignItems="center"
       justifyContent="center"
+      onMouseOver={() => setHovered(true)}
+      onMouseOut={() => setHovered(false)}
       onMouseDown={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -126,12 +132,12 @@ export function MenuButton(props: {
             ? theme.muted
             : props.primary
               ? theme.background
-              : props.focused
-                ? theme.accent
+              : active()
+                ? theme.background
                 : theme.text
         }
       >
-        <b>{props.label}</b>
+        <b>{props.icon ? `${props.icon} ${props.label}` : props.label}</b>
         <Show when={props.shortcut}>{` · ${props.shortcut}`}</Show>
       </text>
     </box>
@@ -141,6 +147,7 @@ export function MenuButton(props: {
 export function MenuOption(props: {
   id: string;
   title: string;
+  icon?: string;
   description?: string;
   compact?: boolean;
   shortcut: string;
@@ -149,6 +156,8 @@ export function MenuOption(props: {
   disabled?: boolean;
   onPress: () => void;
 }) {
+  const [hovered, setHovered] = createSignal(false);
+  const active = () => !props.disabled && (props.focused || hovered());
   return (
     <box
       id={props.id}
@@ -157,8 +166,10 @@ export function MenuOption(props: {
       paddingLeft={1}
       paddingRight={1}
       paddingTop={props.description ? 1 : 0}
-      backgroundColor={props.focused ? theme.selected : theme.background}
+      backgroundColor={active() ? theme.selected : theme.background}
       flexDirection="column"
+      onMouseOver={() => setHovered(true)}
+      onMouseOut={() => setHovered(false)}
       onMouseDown={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -170,9 +181,14 @@ export function MenuOption(props: {
           height={1}
           flexGrow={1}
           wrapMode="none"
-          fg={props.disabled ? theme.muted : props.focused ? theme.accent : theme.text}
+          fg={props.disabled ? theme.muted : active() ? theme.accent : theme.text}
         >
-          <b>{fit(`${props.focused ? "> " : "  "}${props.title}`, props.width - 10)}</b>
+          <b>
+            {fit(
+              `${props.focused ? "> " : "  "}${props.icon ? `${props.icon} ` : ""}${props.title}`,
+              props.width - 8,
+            )}
+          </b>
         </text>
         <text height={1} width={6} selectable={false} fg={theme.muted}>
           {props.shortcut}

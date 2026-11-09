@@ -1,6 +1,8 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { measureEditText } from "@opentui/core";
 import type { DatabaseTable, TableCatalog } from "../../db";
 import type { ColumnState } from "../query-session";
+import { icons } from "../icons";
 import { fit, theme } from "../theme";
 
 export function TableExplorer(props: {
@@ -13,6 +15,8 @@ export function TableExplorer(props: {
   disabled: boolean;
   onSelectTable: (table: DatabaseTable) => void;
 }) {
+  const columnPrefix = `  │${icons.column} `;
+  const prefixWidth = measureEditText(columnPrefix, { widthMethod: "wcwidth" });
   const [filter, setFilter] = createSignal("");
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   const label = (value: string, width = props.width) =>
@@ -41,11 +45,11 @@ export function TableExplorer(props: {
         flexShrink={0}
         width="100%"
         value={filter()}
-        placeholder="Filtrar…"
+        placeholder={`${icons.search} Filtrar…`}
         focused={props.filterFocused}
         textColor={theme.text}
         placeholderColor={theme.muted}
-        backgroundColor={theme.surface}
+        backgroundColor={theme.background}
         focusedBackgroundColor={theme.selected}
         cursorColor={theme.accent}
         onInput={setFilter}
@@ -53,8 +57,10 @@ export function TableExplorer(props: {
           if (event.button === 0) props.onFilterFocus();
         }}
       />
-      <text height={1} marginTop={1} flexShrink={0} fg={theme.text} wrapMode="none">
-        {label(`ENTIDADES${props.catalog ? ` · ${props.catalog.tables.length}` : ""}`)}
+      <text height={1} flexShrink={0} fg={theme.muted} wrapMode="none">
+        {label(
+          `${icons.table} ENTIDADES${props.catalog ? ` · ${props.catalog.tables.length}` : ""}`,
+        )}
       </text>
       <scrollbox
         id="connection-tables"
@@ -63,7 +69,7 @@ export function TableExplorer(props: {
         scrollX={false}
         contentOptions={{ flexDirection: "column" }}
         scrollbarOptions={{
-          trackOptions: { foregroundColor: theme.border, backgroundColor: theme.surface },
+          trackOptions: { foregroundColor: theme.border, backgroundColor: theme.background },
         }}
       >
         <Show
@@ -73,7 +79,7 @@ export function TableExplorer(props: {
               {props.status === "loading"
                 ? "Cargando tablas…"
                 : props.status === "error"
-                  ? "Error al cargar. Pulsa ↻"
+                  ? `Error al cargar. Pulsa ${icons.refresh}`
                   : "Sin conexión"}
             </text>
           }
@@ -89,7 +95,7 @@ export function TableExplorer(props: {
                     id={`schema-${group.schema}`}
                     height={1}
                     flexShrink={0}
-                    fg={theme.muted}
+                    fg={theme.text}
                     wrapMode="none"
                     selectable={false}
                     onMouseDown={(event) => {
@@ -97,9 +103,10 @@ export function TableExplorer(props: {
                     }}
                   >
                     <span style={{ fg: theme.border }}>
-                      {collapsed().has(group.schema) ? "› ▪ " : "⌄ ▪ "}
+                      {collapsed().has(group.schema) ? "▶ " : "▼ "}
                     </span>
-                    {label(group.schema || "Sin esquema", props.width - 4)}
+                    <span style={{ fg: theme.accent }}>{icons.schema} </span>
+                    {label(group.schema || "Sin esquema", props.width - 6)}
                   </text>
                   <Show when={!collapsed().has(group.schema)}>
                     <For each={group.tables}>
@@ -107,8 +114,10 @@ export function TableExplorer(props: {
                         const selected = () =>
                           props.columns.table?.schema === group.schema &&
                           props.columns.table.name === name;
-                        const nameWidth = () => Math.max(4, Math.floor((props.width - 6) * 0.55));
-                        const typeWidth = () => Math.max(1, props.width - 6 - nameWidth());
+                        const nameWidth = () =>
+                          Math.max(4, Math.floor((props.width - prefixWidth - 1) * 0.55));
+                        const typeWidth = () =>
+                          Math.max(1, props.width - prefixWidth - 1 - nameWidth());
                         return (
                           <>
                             <text
@@ -116,16 +125,20 @@ export function TableExplorer(props: {
                               height={1}
                               flexShrink={0}
                               wrapMode="none"
-                              fg={selected() ? theme.accent : theme.muted}
-                              bg={selected() ? theme.selected : theme.surface}
+                              fg={selected() ? theme.accent : theme.text}
+                              bg={selected() ? theme.selected : theme.background}
                               selectable={false}
                               onMouseDown={(event) => {
                                 if (event.button === 0 && !props.disabled)
                                   props.onSelectTable({ schema: group.schema, name });
                               }}
                             >
-                              <span style={{ fg: theme.border }}>{selected() ? " ⌄ " : " › "}</span>
-                              <span style={{ fg: theme.accent }}>▦</span>{" "}
+                              <span style={{ fg: selected() ? theme.accent : theme.border }}>
+                                {selected() ? " ▼ " : " ▶ "}
+                              </span>
+                              <span style={{ fg: selected() ? theme.accent : theme.muted }}>
+                                {icons.table}
+                              </span>{" "}
                               {label(name, props.width - 5)}
                             </text>
                             <Show when={selected()}>
@@ -157,10 +170,14 @@ export function TableExplorer(props: {
                                         flexDirection="row"
                                         overflow="hidden"
                                       >
-                                        <text width={5} fg={theme.border} selectable={false}>
-                                          {"   │ "}
+                                        <text
+                                          width={prefixWidth}
+                                          fg={theme.border}
+                                          selectable={false}
+                                        >
+                                          {columnPrefix}
                                         </text>
-                                        <text width={nameWidth()} fg={theme.muted} wrapMode="none">
+                                        <text width={nameWidth()} fg={theme.text} wrapMode="none">
                                           {label(column.name, nameWidth())}
                                         </text>
                                         <text

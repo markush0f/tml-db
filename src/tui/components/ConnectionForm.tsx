@@ -3,6 +3,7 @@ import { useKeyboard, usePaste } from "@opentui/solid";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import type { ConnectionManager } from "../../db/connection-manager";
 import { connectionDsn, connectionEngines } from "../connection-form";
+import { databaseIcon, icons } from "../icons";
 import { fit, theme } from "../theme";
 import { MenuButton, MenuFrame, MenuOption } from "./MenuPrimitives";
 
@@ -277,7 +278,7 @@ export function ConnectionForm(props: Props) {
       height={4}
     >
       <text height={1} fg={focus() === field ? theme.accent : theme.text}>
-        <b>{label}</b>
+        <b>{`${{ host: icons.server, port: icons.link, user: icons.user, password: icons.lock, database: sqlite() ? icons.file : icons.database, name: icons.database, secret: icons.link }[field]} ${label}`}</b>
       </text>
       <box
         id={`connection-${field}`}
@@ -327,11 +328,12 @@ export function ConnectionForm(props: Props) {
             ? "Sustituir credenciales"
             : "Nueva conexión"
       }
+      icon={icons.database}
       description={
         choosing()
           ? "Elige el tipo de conexión."
           : props.edit
-            ? `Conexión: ${name()}`
+            ? `${icons.database} Conexión: ${name()}`
             : "Datos de acceso a la base."
       }
       onClose={() => (choosing() ? setChoosing(false) : cancel())}
@@ -348,12 +350,14 @@ export function ConnectionForm(props: Props) {
             <MenuButton
               id="connection-engine-back"
               label="Volver"
+              icon={icons.back}
               focused={!chooseConfirm()}
               onPress={() => setChoosing(false)}
             />
             <MenuButton
               id="connection-engine-apply"
               label="Usar motor"
+              icon={icons.database}
               primary
               focused={chooseConfirm()}
               onPress={() => choose(pendingEngine())}
@@ -364,6 +368,7 @@ export function ConnectionForm(props: Props) {
             <MenuButton
               id="connection-cancel"
               label="Cancelar"
+              icon={icons.close}
               shortcut={columns() ? "Esc" : undefined}
               focused={focus() === "cancel"}
               disabled={busy()}
@@ -372,6 +377,7 @@ export function ConnectionForm(props: Props) {
             <MenuButton
               id="connection-save"
               label={busy() ? "Guardando…" : columns() ? "Guardar conexión" : "Guardar"}
+              icon={icons.save}
               primary
               focused={focus() === "save"}
               disabled={!canSave()}
@@ -389,7 +395,7 @@ export function ConnectionForm(props: Props) {
               {(entry, i) => (
                 <MenuOption
                   id={`connection-engine-${entry.scheme}`}
-                  title={entry.label}
+                  title={`${databaseIcon(entry.scheme)} ${entry.label}`}
                   shortcut={String(i() + 1)}
                   compact={props.height < 24}
                   width={width() - 2 - padding() * 2}
@@ -423,7 +429,7 @@ export function ConnectionForm(props: Props) {
             }}
           >
             <text height={1} selectable={false} fg={!urlMode() ? theme.accent : theme.muted}>
-              <b>Por campos</b>
+              <b>{`${icons.column} Por campos`}</b>
             </text>
           </box>
           <box
@@ -442,7 +448,7 @@ export function ConnectionForm(props: Props) {
             }}
           >
             <text height={1} selectable={false} fg={urlMode() ? theme.accent : theme.muted}>
-              <b>Por URL</b>
+              <b>{`${icons.link} Por URL`}</b>
             </text>
           </box>
         </box>
@@ -463,7 +469,7 @@ export function ConnectionForm(props: Props) {
           >
             <box id="connection-group-engine" flexDirection="column" flexShrink={0}>
               <text height={1} fg={focus() === "engine" ? theme.accent : theme.text}>
-                <b>Tipo de conexión</b>
+                <b>{`${icons.database} Tipo de conexión`}</b>
               </text>
               <box
                 id="connection-engine"
@@ -487,7 +493,7 @@ export function ConnectionForm(props: Props) {
                   height={1}
                   selectable={false}
                   fg={theme.text}
-                >{`${connectionEngines[engine()]!.label}  ${choosing() ? "−" : "▾"}`}</text>
+                >{`${databaseIcon(connectionEngines[engine()]!.scheme)} ${connectionEngines[engine()]!.label}  ${choosing() ? "−" : "▾"}`}</text>
               </box>
             </box>
             <Show when={!sqlite()}>
@@ -519,7 +525,7 @@ export function ConnectionForm(props: Props) {
               when={!props.edit}
               fallback={
                 <text height={1} fg={theme.muted}>
-                  {fit(`Nombre: ${name()} · no editable`, contentWidth())}
+                  {fit(`${icons.database} Nombre: ${name()} · no editable`, contentWidth())}
                 </text>
               }
             >
@@ -528,8 +534,8 @@ export function ConnectionForm(props: Props) {
             <text height={1} flexShrink={0} fg={theme.muted} wrapMode="none">
               {fit(
                 props.edit
-                  ? "Credenciales en el llavero del sistema."
-                  : "Llavero del sistema · Solo lectura",
+                  ? `${icons.lock} Credenciales en el llavero del sistema.`
+                  : `${icons.lock} Llavero del sistema · Solo lectura`,
                 contentWidth(),
               )}
             </text>

@@ -1,4 +1,5 @@
 import { For, Show } from "solid-js";
+import { icons } from "../icons";
 import { fit, theme } from "../theme";
 
 export interface SchemaPreview {
@@ -47,14 +48,14 @@ export function DatabaseSidebar(props: Props) {
         bg={theme.selected}
         selectable={false}
       >
-        {label(props.connectionName)}
+        {label(`${icons.database} ${props.connectionName}`)}
       </text>
       <input
         id="table-filter"
         flexShrink={0}
         width="100%"
         value={props.filter}
-        placeholder="Filtrar tablas…"
+        placeholder={`${icons.search} Filtrar tablas…`}
         focused={props.filterFocused}
         textColor={theme.text}
         placeholderColor={theme.muted}
@@ -73,7 +74,7 @@ export function DatabaseSidebar(props: Props) {
         selectable={false}
         fg={props.focused || props.filterFocused ? theme.accent : theme.muted}
       >
-        {`Entidades · ${props.schemas.reduce((sum, schema) => sum + tables(schema).length, 0)}`}
+        {`${icons.table} Entidades · ${props.schemas.reduce((sum, schema) => sum + tables(schema).length, 0)}`}
       </text>
       <scrollbox
         id="schema-tree"
@@ -114,7 +115,9 @@ export function DatabaseSidebar(props: Props) {
                     }
                   }}
                 >
-                  {label(`${props.collapsed.has(schema.name) ? ">" : "v"} ${schema.name}`)}
+                  {label(
+                    `${props.collapsed.has(schema.name) ? ">" : "v"} ${icons.schema} ${schema.name}`,
+                  )}
                 </text>
                 <Show when={!props.collapsed.has(schema.name)}>
                   <For each={tables(schema)}>
@@ -134,7 +137,9 @@ export function DatabaseSidebar(props: Props) {
                           }
                         }}
                       >
-                        {label(`  ${table === props.selectedTable ? ">" : "-"} ${table}`)}
+                        {label(
+                          `  ${table === props.selectedTable ? ">" : "-"} ${icons.table} ${table}`,
+                        )}
                       </text>
                     )}
                   </For>

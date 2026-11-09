@@ -10,6 +10,8 @@ import { QueryPanel } from "./components/QueryPanel";
 import { ResultsPanel, type RowSelection } from "./components/ResultsPanel";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ResizeHandle } from "./components/ResizeHandle";
+import { WorkspaceButton } from "./components/WorkspaceButton";
+import { databaseIcon, icons } from "./icons";
 import { fit, theme } from "./theme";
 import {
   clamp,
@@ -54,13 +56,19 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
     setDirectWrite(false);
     setPicker(true);
   }
+  const canRefreshTables = () =>
+    canChangeConnection() &&
+    state().connection === "ready" &&
+    controller.tables().status !== "loading";
   const canToggleWrite = () =>
     canChangeConnection() &&
     state().connection === "ready" &&
     !!activeConnection() &&
     !!manager.setWriteEnabled;
   const writeActionLabel = () =>
-    state().writeEnabled ? "[Solo lectura · Ctrl+W]" : "[Escritura · Ctrl+W]";
+    state().writeEnabled
+      ? `[${icons.lock} Solo lectura · Ctrl+W]`
+      : `[${icons.write} Escritura · Ctrl+W]`;
   function toggleWrite() {
     if (!canToggleWrite()) return;
     stopDrag();
@@ -81,6 +89,15 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   const [drag, setDrag] = createSignal<Drag | null>(null);
   const layout = () => workspaceLayout(dimensions().width, dimensions().height, preferences());
   const tooSmall = () => dimensions().width < 40 || dimensions().height < 20;
+  const focusLabel = () =>
+    ({ query: "SQL", results: "DATOS", assistant: "BORRADOR", filter: "FILTRO" })[focus()];
+  const focusHint = () =>
+    ({
+      query: "Ctrl+Enter ejecutar",
+      results: "↑/↓ desplazar · clic seleccionar",
+      assistant: "Texto local · sin envío",
+      filter: "Escribe para filtrar · Esc editor",
+    })[focus()];
 
   const actionDisabled = () =>
     tooSmall() ||
@@ -90,11 +107,35 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
     (state().connection === "ready" && !query().trim());
   const connectionLabel = () =>
     ({
-      connecting: "Conectando…",
-      ready: state().writeEnabled ? "Conectado · Escritura" : "Conectado · Solo lectura",
-      error: "Sin conexión",
-      closed: "Cerrando…",
+      connecting: `${icons.refresh} Conectando…`,
+      ready: "Conectado",
+      error: `${icons.warning} Sin conexión`,
+      closed: `${icons.close} Cerrando…`,
     })[state().connection];
+  const headerStatus = () => {
+    if (state().connection !== "ready") return connectionLabel();
+    const mode = state().writeEnabled
+      ? `${icons.write} ${dimensions().width >= 64 ? "Escritura habilitada" : "Escritura"}`
+      : `${icons.lock} Solo lectura`;
+    return dimensions().width >= 64 ? `${connectionLabel()} · ${mode}` : mode;
+  };
+  const connectionButtonWidth = () =>
+    Math.min(
+      dimensions().width >= 64 ? 32 : 22,
+      Math.max(
+        8,
+        dimensions().width -
+          2 -
+          (layout().compact ? 0 : 6) -
+          (icons.close.length + 8) -
+          3 -
+          headerStatus().length,
+      ),
+    );
+  const showConnectionShortcut = () =>
+    dimensions().width >= 64 && connectionButtonWidth() >= icons.database.length + 16;
+  const connectionButtonLabel = () =>
+    `${databaseIcon(controller.engine())} ${fit(activeConnection() || "Conexiones", connectionButtonWidth() - icons.database.length - (showConnectionShortcut() ? 13 : 5))} ▾${showConnectionShortcut() ? "  Ctrl+K" : ""}`;
   const resultMessage = () =>
     state().message ||
     (state().connection === "connecting"
@@ -239,7 +280,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
       <Show when={tooSmall()}>
         <box flexDirection="column" padding={1} overflow="hidden">
           <text wrapMode="none" fg={theme.accent}>
-            Terminal pequeña
+            {`${icons.warning} Terminal pequeña`}
           </text>
           <text wrapMode="none" fg={theme.text}>
             Mínimo: 40×20
@@ -247,16 +288,13 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
           <text wrapMode="none" fg={theme.muted}>
             Ctrl+C: salir
           </text>
-          <text
-            wrapMode="none"
-            fg={theme.accent}
-            selectable={false}
-            onMouseDown={(event) => {
-              if (event.button === 0) void exit();
-            }}
-          >
-            [Salir]
-          </text>
+          <WorkspaceButton
+            id="small-exit-button"
+            label="Salir"
+            icon={icons.close}
+            width={icons.close.length + 8}
+            onPress={() => void exit()}
+          />
         </box>
       </Show>
       <box
@@ -264,44 +302,61 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
         width="100%"
         height="100%"
         border
-        borderStyle="rounded"
+        borderStyle="single"
         borderColor={theme.border}
         flexDirection="column"
         overflow="hidden"
       >
-        <box height={1} flexShrink={0} flexDirection="row" justifyContent="space-between">
+        <box
+          id="workspace-header"
+          height={1}
+          flexShrink={0}
+          flexDirection="row"
+          gap={1}
+          backgroundColor={theme.surface}
+        >
+          <Show when={!layout().compact}>
+            <text
+              height={1}
+              width={5}
+              flexShrink={0}
+              bg={theme.surface}
+              fg={theme.accent}
+              selectable={false}
+            >
+              {" tml"}
+            </text>
+          </Show>
+          <box id="connection-header" width={connectionButtonWidth()} height={1} flexShrink={0}>
+            <WorkspaceButton
+              id="connection-change-button"
+              label={connectionButtonLabel()}
+              width={connectionButtonWidth()}
+              disabled={!canChangeConnection()}
+              onPress={openConnections}
+            />
+          </box>
           <text
+            id="connection-status"
             height={1}
-            width={dimensions().width - 10}
+            flexGrow={1}
             wrapMode="none"
-            fg={theme.accent}
+            fg={state().connection === "ready" && state().writeEnabled ? theme.accent : theme.muted}
             selectable={false}
-            id="connection-header"
-            onMouseDown={(event) => {
-              if (event.button === 0) openConnections();
-            }}
           >
-            {fit(
-              layout().compact
-                ? ` DBHub local · ${state().connection === "ready" ? (state().writeEnabled ? "Escritura" : "Solo lectura") : connectionLabel()} [${activeConnection() || "Conexiones"} v]`
-                : ` DBHub local · ${connectionLabel()} · ${activeConnection()}`,
-              dimensions().width - 10,
-            )}
+            {headerStatus()}
           </text>
-          <text
+          <WorkspaceButton
             id="exit-button"
-            height={1}
-            width={8}
-            flexShrink={0}
-            fg={theme.muted}
-            selectable={false}
-            onMouseDown={(event) => {
-              if (event.button === 0) void exit();
-            }}
-          >
-            [Salir]
-          </text>
+            label="Salir"
+            icon={icons.close}
+            width={icons.close.length + 8}
+            onPress={() => void exit()}
+          />
         </box>
+        <text height={1} flexShrink={0} wrapMode="none" fg={theme.border} selectable={false}>
+          {"─".repeat(Math.max(0, dimensions().width - 2))}
+        </text>
         <box height={layout().bodyHeight} flexShrink={0} flexDirection="row" overflow="hidden">
           <Show when={!layout().compact}>
             <box
@@ -310,57 +365,41 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
               height="100%"
               paddingLeft={1}
               paddingRight={1}
-              backgroundColor={theme.surface}
+              backgroundColor={theme.background}
               flexDirection="column"
             >
-              <box
-                height={1}
-                marginBottom={1}
-                flexShrink={0}
-                flexDirection="row"
-                backgroundColor={theme.selected}
-              >
+              <box height={1} flexShrink={0} flexDirection="row">
                 <text
-                  id="connection-sidebar"
-                  fg={theme.muted}
-                  flexGrow={1}
-                  height={1}
+                  flexShrink={0}
+                  fg={focus() === "filter" ? theme.accent : theme.muted}
                   selectable={false}
-                  wrapMode="none"
-                  onMouseDown={(event) => {
-                    if (event.button === 0) openConnections();
-                  }}
                 >
-                  {fit(activeConnection() || "Conexiones", layout().sidebarWidth - 8)}
+                  {`${icons.database} ${layout().sidebarWidth < 22 ? "EXPL." : "EXPLORADOR"}`}
                 </text>
-                <text
-                  width={2}
-                  fg={theme.muted}
-                  selectable={false}
-                  onMouseDown={(event) => {
-                    if (event.button === 0) openConnections();
-                  }}
-                >
-                  ⌄
+                <text flexGrow={1} wrapMode="none" fg={theme.border} selectable={false}>
+                  {` ${"─".repeat(layout().sidebarWidth)}`}
                 </text>
-                <text
+                <WorkspaceButton
                   id="refresh-tables"
-                  width={2}
-                  fg={theme.muted}
-                  selectable={false}
-                  onMouseDown={(event) => {
-                    if (
-                      event.button === 0 &&
-                      state().connection === "ready" &&
-                      state().query !== "running" &&
-                      controller.tables().status !== "loading"
-                    )
-                      void controller.refreshTables();
-                  }}
-                >
-                  ↻
-                </text>
+                  label={layout().sidebarWidth >= 30 ? "Actualizar" : icons.refresh}
+                  icon={layout().sidebarWidth >= 30 ? icons.refresh : undefined}
+                  width={
+                    layout().sidebarWidth >= 30
+                      ? 13 + icons.refresh.length
+                      : icons.refresh.length + 2
+                  }
+                  disabled={!canRefreshTables()}
+                  onPress={() => void controller.refreshTables()}
+                />
               </box>
+              <WorkspaceButton
+                id="connection-sidebar"
+                label={`${activeConnection() || "Conexiones"} ⌄`}
+                icon={databaseIcon(controller.engine())}
+                width={layout().sidebarWidth - 3}
+                disabled={!canChangeConnection()}
+                onPress={openConnections}
+              />
               <TableExplorer
                 width={layout().sidebarWidth - 3}
                 status={
@@ -388,7 +427,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
           <box
             width={layout().mainWidth}
             height="100%"
-            backgroundColor={theme.surface}
+            backgroundColor={theme.background}
             flexDirection="column"
             overflow="hidden"
           >
@@ -446,33 +485,41 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
             />
           </box>
         </box>
-        <box height={1} flexShrink={0} flexDirection="row">
+        <box height={1} flexShrink={0} flexDirection="row" backgroundColor={theme.surface}>
           <Show when={manager.setWriteEnabled}>
-            <text
+            <WorkspaceButton
               id="write-mode-toggle"
-              height={1}
+              label={writeActionLabel().slice(1, -1)}
               width={writeActionLabel().length}
+              disabled={!canToggleWrite()}
+              onPress={toggleWrite}
+            />
+          </Show>
+          <Show when={!layout().compact}>
+            <text
+              id="workspace-mode"
+              height={1}
+              width={10}
               flexShrink={0}
-              wrapMode="none"
-              fg={canToggleWrite() ? theme.accent : theme.muted}
+              fg={theme.accent}
+              bg={theme.surface}
               selectable={false}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (event.button === 0) toggleWrite();
-              }}
+              wrapMode="none"
             >
-              {writeActionLabel()}
+              <b>{` ${focusLabel()}`}</b>
             </text>
           </Show>
           <text height={1} flexGrow={1} wrapMode="none" fg={theme.muted} selectable={false}>
             {fit(
               dimensions().width < 80
-                ? " Ctrl+K: conexiones · Ctrl+C: salir"
-                : " Ctrl+Enter: ejecutar · Ctrl+K: conexiones · Tab: foco · Ctrl+C: salir",
+                ? "  Ctrl+K conexiones    Ctrl+C salir"
+                : `  ${focusHint()}    Tab foco    Ctrl+K conexiones    Ctrl+C salir`,
               Math.max(
                 1,
-                dimensions().width - 2 - (manager.setWriteEnabled ? writeActionLabel().length : 0),
+                dimensions().width -
+                  2 -
+                  (layout().compact ? 0 : 10) -
+                  (manager.setWriteEnabled ? writeActionLabel().length : 0),
               ),
             )}
           </text>

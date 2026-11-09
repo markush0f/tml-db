@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
-import type { Renderable, TextareaRenderable } from "@opentui/core";
+import { measureEditText, type Renderable, type TextareaRenderable } from "@opentui/core";
 import { App } from "../../src/tui/app";
+import { icons } from "../../src/tui/icons";
 import type { ConnectionManager, ConnectionSummary } from "../../src/db/connection-manager";
 
 type View = Awaited<ReturnType<typeof testRender>>;
@@ -78,6 +79,110 @@ function setup() {
   };
   return { manager, connect, saved, removed, connected, closes: () => closes };
 }
+for (const width of [120, 80, 40]) {
+  test(`barra de conexión ${width}: botones visibles, actualizar y abrir gestor sin SQL`, async () => {
+    const fixture = setup();
+    let refreshes = 0;
+    let executions = 0;
+    const view = await testRender(
+      () => (
+        <App
+          connections={fixture.manager}
+          connect={async () => ({
+            close: async () => {},
+            listTables: async () => {
+              refreshes++;
+              return { tables: [], truncated: false };
+            },
+            execute: async () => {
+              executions++;
+              return { statements: [], durationMs: 1 };
+            },
+          })}
+        />
+      ),
+      { width, height: 20, useMouse: true },
+    );
+    try {
+      const frame = await draw(view);
+      expect(frame).toContain("dev ▾");
+      expect(frame).toContain("Solo lectura");
+      expect(frame).not.toContain("Cambiar conexión");
+      expect(frame).not.toContain("Selecciona, crea");
+      for (const id of ["connection-change-button", "connection-status", "exit-button"]) {
+        const button = find(view, id);
+        expect(button.x + button.width).toBeLessThanOrEqual(width - 1);
+        expect(button.y).toBe(find(view, "workspace-header").y);
+      }
+      expect(refreshes).toBe(1);
+      if (width >= 80) {
+        await click(view, "refresh-tables");
+        expect(refreshes).toBe(2);
+        expect(find(view, "refresh-tables").y).toBeGreaterThan(find(view, "workspace-header").y);
+      }
+      const editor = find(view, "query-editor") as TextareaRenderable;
+      const sql = editor.plainText;
+      expect(await click(view, "connection-change-button")).toContain("Gestionar conexiones");
+      view.mockInput.pressEscape();
+      await draw(view);
+      expect(editor.plainText).toBe(sql);
+      expect(editor.focused).toBe(true);
+      expect(executions).toBe(0);
+    } finally {
+      view.renderer.destroy();
+    }
+  });
+}
+
+for (const width of [40, 63, 64, 79, 80, 120]) {
+  for (const writeEnabled of [false, true]) {
+    test(`cabecera ${width}: nombre largo y acceso ${writeEnabled ? "escritura" : "lectura"} sin desbordar`, async () => {
+      const name = "produccion-conexion-con-un-nombre-muy-largo";
+      const fixture = setup();
+      const view = await testRender(
+        () => (
+          <App
+            connections={{
+              ...fixture.manager,
+              list: async () => ({
+                active: name,
+                connections: [{ name, kind: "demo", writeEnabled }],
+              }),
+            }}
+            connect={async () => ({ ...(await fixture.connect()), writeEnabled })}
+          />
+        ),
+        { width, height: 20, useMouse: true },
+      );
+      try {
+        const frame = await draw(view);
+        const status = find(view, "connection-status");
+        const exit = find(view, "exit-button");
+        const selector = find(view, "connection-change-button");
+        expect(selector.x + selector.width).toBeLessThan(status.x);
+        expect(status.x + status.width).toBeLessThan(exit.x);
+        expect(exit.x + exit.width).toBeLessThanOrEqual(width - 1);
+        const header = frame.split("\n")[status.y]!;
+        expect(header).toContain(
+          writeEnabled
+            ? width < 64
+              ? `${icons.write} Escritura`
+              : "Escritura habilitada"
+            : "Solo lectura",
+        );
+        expect(header).toContain("Salir");
+        expect(header).toContain("▾");
+        expect(header).toContain("…");
+        await click(view, "connection-status");
+        expect(await draw(view)).not.toContain("Gestionar conexiones");
+        expect(await click(view, "connection-change-button")).toContain("Gestionar conexiones");
+      } finally {
+        view.renderer.destroy();
+      }
+    });
+  }
+}
+
 for (const width of [120, 40]) {
   test(`selector ${width}: buscar, cambiar, conservar SQL y restaurar foco`, async () => {
     const fixture = setup();
@@ -128,7 +233,9 @@ for (const width of [120, 40]) {
       await click(view, "connection-write");
       await click(view, "connection-confirm-write");
       expect(await draw(view)).toContain(
-        width === 40 ? "DBHub local · Escritura" : "Conectado · Escritura",
+        width === 40
+          ? `${icons.write} Escritura`
+          : `Conectado · ${icons.write} Escritura habilitada`,
       );
       expect(fixture.connected).toEqual([undefined, "dev"]);
       expect(fixture.closes()).toBe(1);
@@ -136,7 +243,7 @@ for (const width of [120, 40]) {
       await draw(view);
       await click(view, "connection-write");
       expect(await draw(view)).toContain(
-        width === 40 ? "DBHub local · Solo lectura" : "Conectado · Solo lectura",
+        width === 40 ? "Solo lectura" : `Conectado · ${icons.lock} Solo lectura`,
       );
       expect(fixture.closes()).toBe(2);
     } finally {
@@ -496,7 +603,9 @@ test("no permite eliminar la conexión activa y aísla Ctrl+Enter del editor", a
     expect(fixture.removed.length).toBe(0);
     const frame = await draw(view);
     expect(frame.split("\n").length).toBeLessThanOrEqual(21);
-    for (const line of frame.split("\n")) expect(Array.from(line).length).toBeLessThanOrEqual(40);
+    for (const line of frame.split("\n")) {
+      expect(measureEditText(line, { widthMethod: "wcwidth" })).toBeLessThanOrEqual(40);
+    }
   } finally {
     view.renderer.destroy();
   }

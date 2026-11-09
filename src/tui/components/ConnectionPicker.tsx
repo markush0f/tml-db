@@ -1,6 +1,7 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { useKeyboard, usePaste } from "@opentui/solid";
 import type { ConnectionManager, ConnectionSummary } from "../../db/connection-manager";
+import { icons } from "../icons";
 import { fit, theme } from "../theme";
 import { ConnectionForm } from "./ConnectionForm";
 import { MenuButton, MenuFrame, MenuOption } from "./MenuPrimitives";
@@ -190,6 +191,7 @@ export function ConnectionPicker(props: Props) {
     {
       id: "edit",
       title: "Editar URL",
+      icon: icons.edit,
       description: "Sustituir las credenciales guardadas",
       shortcut: "Ctrl+E",
       press: () => form(true),
@@ -199,6 +201,7 @@ export function ConnectionPicker(props: Props) {
           {
             id: "write",
             title: selected()?.writeEnabled ? "Solo lectura" : "Habilitar escritura",
+            icon: selected()?.writeEnabled ? icons.lock : icons.write,
             description: selected()?.writeEnabled
               ? "Bloquear cambios en datos y tablas"
               : "Permitir cambios en datos y tablas",
@@ -210,6 +213,7 @@ export function ConnectionPicker(props: Props) {
     {
       id: "delete",
       title: "Eliminar conexión",
+      icon: icons.delete,
       description: "Quitar del catálogo y borrar su secreto",
       shortcut: "Ctrl+D",
       press: askDelete,
@@ -360,11 +364,18 @@ export function ConnectionPicker(props: Props) {
           width={width()}
           height={height()}
           title={title()}
+          icon={
+            mode() === "list"
+              ? icons.database
+              : mode() === "actions"
+                ? icons.settings
+                : icons.warning
+          }
           description={
             mode() === "list"
-              ? "Elige dónde trabajar."
+              ? "Selecciona una conexión y pulsa Conectar."
               : mode() === "actions"
-                ? (selected()?.name ?? "")
+                ? `${icons.database} ${selected()?.name ?? ""}`
                 : "Confirma el cambio."
           }
           closeFocused={mode() === "list" && focus() === "close"}
@@ -381,7 +392,8 @@ export function ConnectionPicker(props: Props) {
               <>
                 <MenuButton
                   id="connection-new"
-                  label={wide() ? "Nueva conexión" : "Nueva"}
+                  label={wide() ? "Nueva conexión" : "Alta"}
+                  icon={icons.add}
                   shortcut={contentWidth() >= 82 ? "Ctrl+N" : undefined}
                   focused={focus() === "new"}
                   disabled={busy()}
@@ -389,7 +401,8 @@ export function ConnectionPicker(props: Props) {
                 />
                 <MenuButton
                   id="connection-more"
-                  label="Acciones"
+                  label={wide() ? "Gestionar" : "Más"}
+                  icon={icons.settings}
                   focused={focus() === "more"}
                   disabled={busy() || !selected()}
                   onPress={() => activate("more")}
@@ -397,6 +410,7 @@ export function ConnectionPicker(props: Props) {
                 <MenuButton
                   id="connection-select"
                   label="Conectar"
+                  icon={icons.execute}
                   shortcut={wide() ? "Enter" : undefined}
                   primary
                   focused={focus() === "select"}
@@ -408,6 +422,7 @@ export function ConnectionPicker(props: Props) {
               <MenuButton
                 id="connection-actions-back"
                 label="Volver"
+                icon={icons.back}
                 shortcut="Esc"
                 focused={option() === options().length}
                 disabled={busy()}
@@ -418,6 +433,7 @@ export function ConnectionPicker(props: Props) {
                 <MenuButton
                   id={`connection-cancel-${mode()}`}
                   label="Cancelar"
+                  icon={icons.close}
                   shortcut={wide() ? "Esc" : undefined}
                   focused={!confirm()}
                   disabled={busy()}
@@ -434,6 +450,7 @@ export function ConnectionPicker(props: Props) {
                           : "Habilitar"
                         : "Eliminar"
                   }
+                  icon={mode() === "write" ? icons.write : icons.delete}
                   primary
                   focused={confirm()}
                   disabled={busy()}
@@ -466,7 +483,10 @@ export function ConnectionPicker(props: Props) {
                 selectable={false}
                 fg={search() ? theme.text : theme.muted}
               >
-                {fit(search() ? `Buscar: ${search()}` : "Buscar conexión…", contentWidth() - 4)}
+                {fit(
+                  `${icons.search} ${search() ? `Buscar: ${search()}` : "Buscar conexión…"}`,
+                  contentWidth() - 4,
+                )}
               </text>
             </box>
             <text height={1} flexShrink={0} wrapMode="none" fg={theme.muted}>
@@ -520,7 +540,7 @@ export function ConnectionPicker(props: Props) {
                       fg={index() === start() + offset() ? theme.accent : theme.text}
                     >
                       {tableLine(
-                        entry.name,
+                        `${icons.database} ${entry.name}`,
                         entry.writeEnabled ? "Escritura" : "Solo lectura",
                         source(entry),
                         entry.name === props.active ? "En uso" : "",
@@ -547,7 +567,7 @@ export function ConnectionPicker(props: Props) {
                 {fit(
                   selected()
                     ? wide()
-                      ? `${filtered().length} conexiones · Seleccionada: ${selected()!.name}`
+                      ? `${filtered().length} conexiones · Seleccionada: ${icons.database} ${selected()!.name}`
                       : `${index() + 1}/${filtered().length} · ${selected()!.writeEnabled ? "Escritura" : "Solo lectura"} · ${source(selected()!)}`
                     : "Prueba otro nombre o crea una conexión.",
                   contentWidth(),
@@ -566,6 +586,7 @@ export function ConnectionPicker(props: Props) {
                 <MenuOption
                   id={`connection-${action.id}`}
                   title={action.title}
+                  icon={action.icon}
                   description={short() ? undefined : action.description}
                   shortcut={action.shortcut}
                   width={contentWidth()}
@@ -604,7 +625,7 @@ export function ConnectionPicker(props: Props) {
                 <text height={1} wrapMode="none" fg={theme.text}>
                   <b>
                     {fit(
-                      short() ? `Conexión: ${selected()?.name ?? ""}` : (selected()?.name ?? ""),
+                      `${icons.database} ${short() ? "Conexión: " : ""}${selected()?.name ?? ""}`,
                       contentWidth() - (short() ? 0 : 2),
                     )}
                   </b>

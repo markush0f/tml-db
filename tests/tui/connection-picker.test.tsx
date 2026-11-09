@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
+import { icons } from "../../src/tui/icons";
 import type { Renderable } from "@opentui/core";
 import { ConnectionPicker } from "../../src/tui/components/ConnectionPicker";
 import type { ConnectionManager, ConnectionSummary } from "../../src/db/connection-manager";
@@ -129,7 +130,7 @@ test("selección y conexión activa distintas; Tab activa acciones y búsqueda v
     await draw(view);
     view.mockInput.pressArrow("down");
     let frame = await draw(view);
-    expect(frame).toContain("> desarrollo");
+    expect(frame).toContain(`> ${icons.database} desarrollo`);
     expect(frame).toContain("En uso");
     view.mockInput.pressTab();
     view.mockInput.pressEnter();

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
+import { icons } from "../../src/tui/icons";
 import type { Renderable } from "@opentui/core";
 
 function find(node: Renderable, id: string): Renderable | undefined {
@@ -104,7 +105,9 @@ test("sidebar muestra tablas debajo de la conexión, esquemas, scroll y catálog
     const frame = view.captureCharFrame();
     expect(frame).toContain("ENTIDADES · 60");
     expect(frame).toContain("Filtrar…");
-    expect(frame).toContain("▦");
+    expect(frame).toContain(`${icons.table} ENTIDADES`);
+    expect(frame).toContain(`${icons.schema} public`);
+    expect(frame).toContain(`${icons.database} test`);
     expect(frame).toContain("public");
     expect(frame).toContain("table_00");
     expect(frame).toContain("Lista parcial");
@@ -115,7 +118,7 @@ test("sidebar muestra tablas debajo de la conexión, esquemas, scroll y catálog
     await view.renderOnce();
     expect(view.captureCharFrame()).toContain("uuid");
     expect(view.captureCharFrame()).toContain("id");
-    expect(view.captureCharFrame()).toContain("Resultados · public.table_00");
+    expect(view.captureCharFrame()).toContain(`Resultados · ${icons.table} public.table_00`);
     expect(view.captureCharFrame()).toContain("Ana");
     expect(view.captureCharFrame()).toContain("SELECT * FROM users LIMIT 200;");
     await view.mockMouse.click(table.x, table.y);

@@ -18,17 +18,22 @@ export function workspaceLayout(
   const compact = width < 80;
   // Keep hidden panels valid even when the terminal is too small to display them.
   const availableWidth = Math.max(40, width) - 2;
-  const bodyHeight = Math.max(20, height) - 4;
+  // Two border rows, connection status, action toolbar and shortcut footer.
+  const bodyHeight = Math.max(20, height) - 5;
   const sidebarWidth = compact
     ? 0
-    : clamp(preferences.sidebar ?? (width >= 100 ? 26 : 22), 18, availableWidth - 36);
+    : clamp(
+        preferences.sidebar ?? (width >= 110 ? 32 : width >= 100 ? 26 : 22),
+        18,
+        availableWidth - 36,
+      );
   const assistantHeight = clamp(
     preferences.assistant ?? Math.floor(bodyHeight * 0.15) - 1,
     MIN_ASSISTANT_HEIGHT,
     bodyHeight - 2 - MIN_QUERY_HEIGHT - MIN_RESULTS_HEIGHT,
   );
   const resultsHeight = clamp(
-    preferences.results ?? Math.floor(bodyHeight * 0.25) - 1,
+    preferences.results ?? Math.floor(bodyHeight * 0.35) - 1,
     MIN_RESULTS_HEIGHT,
     bodyHeight - 2 - MIN_QUERY_HEIGHT - assistantHeight,
   );
