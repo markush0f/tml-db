@@ -1,3 +1,4 @@
+import { memorySqlSheetStore } from "../../src/tui/sql-sheet-store";
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import {
@@ -30,7 +31,7 @@ const fakeConnect = async (): Promise<QuerySession> => ({
   execute: async () => sample,
   close: async () => {},
 });
-const App = () => <RealApp connect={fakeConnect} />;
+const App = () => <RealApp sheetStore={memorySqlSheetStore()} connect={fakeConnect} />;
 import { demoWorkspace } from "../fixtures/workspace";
 import { workspaceLayout } from "../../src/tui/workspace-layout";
 import { DatabaseSidebar } from "../../src/tui/components/DatabaseSidebar";

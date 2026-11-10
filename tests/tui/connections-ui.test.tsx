@@ -1,3 +1,4 @@
+import { memorySqlSheetStore } from "../../src/tui/sql-sheet-store";
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import { measureEditText, type Renderable, type TextareaRenderable } from "@opentui/core";
@@ -86,7 +87,7 @@ for (const width of [120, 80, 40]) {
     let executions = 0;
     const view = await testRender(
       () => (
-        <App
+        <App sheetStore={memorySqlSheetStore()}
           connections={fixture.manager}
           connect={async () => ({
             close: async () => {},
@@ -141,7 +142,7 @@ for (const width of [40, 63, 64, 79, 80, 120]) {
       const fixture = setup();
       const view = await testRender(
         () => (
-          <App
+          <App sheetStore={memorySqlSheetStore()}
             connections={{
               ...fixture.manager,
               list: async () => ({
@@ -187,7 +188,7 @@ for (const width of [120, 40]) {
   test(`selector ${width}: buscar, cambiar, conservar SQL y restaurar foco`, async () => {
     const fixture = setup();
     const view = await testRender(
-      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
       { width, height: 24, useMouse: true },
     );
     try {
@@ -217,7 +218,7 @@ for (const width of [120, 40]) {
   test(`escritura ${width}: confirmar activación, reconectar activa y deshabilitar`, async () => {
     const fixture = setup();
     const view = await testRender(
-      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
       { width, height: 24, useMouse: true },
     );
     try {
@@ -263,7 +264,7 @@ for (const width of [120, 40]) {
         return { statements: [], durationMs: 1 };
       },
     });
-    const view = await testRender(() => <App connect={connect} connections={fixture.manager} />, {
+    const view = await testRender(() => <App sheetStore={memorySqlSheetStore()} connect={connect} connections={fixture.manager} />, {
       width,
       height: 24,
       useMouse: true,
@@ -323,7 +324,7 @@ test("cambio directo bloqueado durante conexión y ejecución", async () => {
   });
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connections={fixture.manager}
         connect={async () => {
           await connecting;
@@ -362,7 +363,7 @@ test("cambio directo bloqueado durante conexión y ejecución", async () => {
 test("registro oculto, sustitución, cancelación y eliminación con confirmación", async () => {
   const fixture = setup();
   const view = await testRender(
-    () => <App connect={fixture.connect} connections={fixture.manager} />,
+    () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
     { width: 80, height: 24, useMouse: true },
   );
   try {
@@ -414,7 +415,7 @@ for (const [width, height] of [
   test(`formulario ${width}×${height}: jerarquía, límites, foco y URL oculta`, async () => {
     const fixture = setup();
     const view = await testRender(
-      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
       { width, height, useMouse: true },
     );
     try {
@@ -458,7 +459,7 @@ test("formulario: conserva datos al reducir terminal y muestra errores sin revel
     throw new Error("No se pudo guardar en el llavero.");
   };
   const view = await testRender(
-    () => <App connect={fixture.connect} connections={fixture.manager} />,
+    () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
     { width: 120, height: 30, useMouse: true },
   );
   try {
@@ -493,7 +494,7 @@ for (const [width, height] of [
   test(`campos ${width}×${height}: motor, navegación, contraseña oculta y guardado real`, async () => {
     const fixture = setup();
     const view = await testRender(
-      () => <App connect={fixture.connect} connections={fixture.manager} />,
+      () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
       { width, height, useMouse: true },
     );
     try {
@@ -549,7 +550,7 @@ for (const [width, height] of [
 test("selector de motor con ratón, SQLite sin campos de red y cancelación limpia", async () => {
   const fixture = setup();
   const view = await testRender(
-    () => <App connect={fixture.connect} connections={fixture.manager} />,
+    () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
     { width: 120, height: 42, useMouse: true },
   );
   try {
@@ -587,7 +588,7 @@ test("selector de motor con ratón, SQLite sin campos de red y cancelación limp
 test("no permite eliminar la conexión activa y aísla Ctrl+Enter del editor", async () => {
   const fixture = setup();
   const view = await testRender(
-    () => <App connect={fixture.connect} connections={fixture.manager} />,
+    () => <App sheetStore={memorySqlSheetStore()} connect={fixture.connect} connections={fixture.manager} />,
     { width: 40, height: 20, useMouse: true },
   );
   try {

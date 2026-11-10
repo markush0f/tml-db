@@ -4,6 +4,7 @@ import { fit, theme } from "../theme";
 
 /** Shared chrome: title, breathing room, scroll-safe body and a fixed action footer. */
 export function MenuFrame(props: {
+  id?: string;
   width: number;
   height: number;
   title: string;
@@ -19,7 +20,7 @@ export function MenuFrame(props: {
   const textWidth = () => props.width - 2 - padding() * 2;
   return (
     <box
-      id="connection-picker"
+      id={props.id ?? "connection-picker"}
       width={props.width}
       height={props.height}
       border
@@ -36,7 +37,7 @@ export function MenuFrame(props: {
             <b>{fit(`${props.icon ? `${props.icon} ` : ""}${props.title}`, textWidth() - 6)}</b>
           </text>
           <WorkspaceButton
-            id="connection-close"
+            id={props.id ? `${props.id}-close` : "connection-close"}
             label="Esc"
             width={5}
             focused={props.closeFocused}

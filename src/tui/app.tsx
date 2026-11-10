@@ -7,6 +7,9 @@ import { ConnectionPicker } from "./components/ConnectionPicker";
 import { TableExplorer } from "./components/TableExplorer";
 import { createQueryController, type SessionFactory } from "./query-session";
 import { QueryPanel } from "./components/QueryPanel";
+import { SqlSheetPicker } from "./components/SqlSheetPicker";
+import { createSqlSheets } from "./sql-sheets";
+import { createSqlSheetStore, type SqlSheetStore } from "./sql-sheet-store";
 import { ResultsPanel, type RowSelection } from "./components/ResultsPanel";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ResizeHandle } from "./components/ResizeHandle";
@@ -33,7 +36,7 @@ interface Drag {
   assistant: number;
 }
 
-export function App(props: { connect?: SessionFactory; connections?: ConnectionManager } = {}) {
+export function App(props: { connect?: SessionFactory; connections?: ConnectionManager; sheetStore?: SqlSheetStore } = {}) {
   const renderer = useRenderer();
   const dimensions = useTerminalDimensions();
   const [preferences, setPreferences] = createSignal<LayoutPreferences>({});
@@ -41,12 +44,26 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   const manager = props.connections ?? createConnectionManager();
   const [picker, setPicker] = createSignal(false);
   const [directWrite, setDirectWrite] = createSignal(false);
+  const sheets = createSqlSheets(props.sheetStore ?? createSqlSheetStore());
+  const [sheetPicker, setSheetPicker] = createSignal(false);
+  const [exitPrompt, setExitPrompt] = createSignal(false);
+  const [exiting, setExiting] = createSignal(false);
+  let discardOnExit = false;
+  const [resultOrigin, setResultOrigin] = createSignal<{id: string; name: string} | null>(null);
+  const modal = () => picker() || sheetPicker();
+  function openSheets() {
+    if (tooSmall() || sheets.loading() || modal() || exiting()) return;
+    stopDrag(); setSheetPicker(true);
+  }
+  function closeSheets() { setSheetPicker(false); setExitPrompt(false); setFocus("query"); }
   const [activeConnection, setActiveConnection] = createSignal("");
   const controller = createQueryController(
     props.connect ?? ((name) => connectQuerySession({ connectionName: name })),
   );
   const canChangeConnection = () =>
     !tooSmall() &&
+    !sheetPicker() &&
+    !exiting() &&
     state().connection !== "connecting" &&
     state().connection !== "closed" &&
     state().query !== "running";
@@ -80,10 +97,11 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
     setPicker(false);
     setSelectedRow(null);
     setActiveConnection(name);
+    setResultOrigin(null);
     void controller.switchConnection(name);
   }
   const state = controller.state;
-  const [query, setQuery] = createSignal("SELECT * FROM users LIMIT 200;");
+  const query = () => sheets.active().sql;
   const [draft, setDraft] = createSignal("");
   const [selectedRow, setSelectedRow] = createSignal<RowSelection | null>(null);
   const [drag, setDrag] = createSignal<Drag | null>(null);
@@ -93,7 +111,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
     ({ query: "SQL", results: "DATOS", assistant: "BORRADOR", filter: "FILTRO" })[focus()];
   const focusHint = () =>
     ({
-      query: "Ctrl+Enter ejecutar",
+      query: "Ctrl+Enter ejecutar · Ctrl+O hojas",
       results: "↑/↓ desplazar · clic seleccionar",
       assistant: "Texto local · sin envío",
       filter: "Escribe para filtrar · Esc editor",
@@ -101,6 +119,8 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
 
   const actionDisabled = () =>
     tooSmall() ||
+    sheets.loading() ||
+    exiting() ||
     state().connection === "connecting" ||
     state().connection === "closed" ||
     state().query === "running" ||
@@ -148,18 +168,27 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   function execute() {
     if (actionDisabled()) return;
     setSelectedRow(null);
-    if (state().connection === "error") void controller.reconnect();
-    else void controller.execute(query());
+    if (state().connection === "error") { setResultOrigin(null); void controller.reconnect(); }
+    else { setResultOrigin({ id: sheets.active().id, name: sheets.active().name }); void controller.execute(query()); }
   }
-  async function exit() {
+  async function exit(discard = false) {
+    if (exiting()) return;
+    setExiting(true);
+    if (!discard && !await sheets.flush()) {
+      setExiting(false); setPicker(false); stopDrag(); setExitPrompt(true); setSheetPicker(true); return;
+    }
+    discardOnExit = discard;
+    sheets.dispose(false);
     await controller.close();
     renderer.destroy();
   }
   const destroyed = () => {
+    sheets.dispose(!discardOnExit);
     void controller.close();
   };
   onMount(() => {
     renderer.on("destroy", destroyed);
+    void sheets.load();
     void (async () => {
       try {
         const list = await manager.list();
@@ -172,6 +201,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
   });
   onCleanup(() => {
     renderer.off("destroy", destroyed);
+    sheets.dispose(!discardOnExit);
     void controller.close();
   });
 
@@ -237,8 +267,10 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
     if (key.ctrl && key.name === "c") {
       key.preventDefault();
       void exit();
-    } else if (picker()) {
+    } else if (modal() || exiting()) {
       return;
+    } else if (key.ctrl && key.name === "o") {
+      key.preventDefault(); key.stopPropagation(); openSheets();
     } else if (key.ctrl && key.name === "w") {
       key.preventDefault();
       key.stopPropagation();
@@ -410,9 +442,10 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
                 disabled={state().connection !== "ready" || state().query === "running"}
                 onSelectTable={(table) => {
                   setSelectedRow(null);
+                  setResultOrigin(null);
                   void controller.browseTable(table);
                 }}
-                filterFocused={focus() === "filter" && !picker() && !tooSmall()}
+                filterFocused={focus() === "filter" && !modal() && !tooSmall()}
                 onFilterFocus={() => setFocus("filter")}
               />
             </box>
@@ -433,10 +466,14 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
           >
             <QueryPanel
               height={layout().queryHeight}
-              query={query()}
-              focused={!tooSmall() && !picker() && focus() === "query"}
+              width={layout().mainWidth}
+              sheets={sheets.document().sheets}
+              activeId={sheets.document().activeSheetId}
+              loading={sheets.loading()}
+              focused={!tooSmall() && !sheets.loading() && !modal() && !exiting() && focus() === "query"}
               onFocus={() => setFocus("query")}
-              onChange={setQuery}
+              onChange={sheets.updateSql}
+              onOpenSheets={openSheets}
               actionLabel={
                 state().connection === "error"
                   ? "Reconectar"
@@ -463,7 +500,8 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
                   : undefined
               }
               message={resultMessage()}
-              focused={!tooSmall() && !picker() && focus() === "results"}
+              sheetName={resultOrigin()?.name}
+              focused={!tooSmall() && !modal() && focus() === "results"}
               selectedRow={selectedRow()}
               onFocus={() => setFocus("results")}
               onSelectRow={setSelectedRow}
@@ -479,7 +517,7 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
               width={layout().mainWidth}
               message="Pregunta sobre tu base de datos"
               draft={draft()}
-              focused={!tooSmall() && !picker() && focus() === "assistant"}
+              focused={!tooSmall() && !modal() && !exiting() && focus() === "assistant"}
               onFocus={() => setFocus("assistant")}
               onChange={setDraft}
             />
@@ -538,6 +576,11 @@ export function App(props: { connect?: SessionFactory; connections?: ConnectionM
             setFocus("query");
           }}
         />
+      </Show>
+      <Show when={sheetPicker()}>
+        <SqlSheetPicker sheets={sheets} width={dimensions().width} height={dimensions().height}
+          visible={!tooSmall()} runningId={state().query === "running" ? resultOrigin()?.id : undefined}
+          exitPrompt={exitPrompt()} onClose={closeSheets} onExit={(discard) => void exit(discard)} />
       </Show>
       <Show when={drag()}>
         <box

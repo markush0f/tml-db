@@ -15,6 +15,7 @@ interface Props {
   readonly results: QueryResult | null;
   readonly message?: string;
   readonly tableName?: string;
+  readonly sheetName?: string;
   readonly focused: boolean;
   readonly selectedRow: RowSelection | null;
   readonly onFocus: () => void;
@@ -106,7 +107,7 @@ export function ResultsPanel(props: Props) {
       <PanelHeading label="Resultados" icon={icons.row} focused={props.focused} width={props.width}>
         <text height={1} flexShrink={1} minWidth={0} wrapMode="none" selectable={false}>
           <span style={{ fg: theme.accent }}>
-            {props.tableName ? `· ${icons.table} ${safeCell(props.tableName)}` : ""}
+            {props.tableName ? `· ${icons.table} ${safeCell(props.tableName)}` : props.sheetName ? `· Hoja: ${safeCell(props.sheetName)}` : ""}
           </span>
           <span style={{ fg: theme.muted }}>{summary()}</span>
         </text>

@@ -1,3 +1,4 @@
+import { memorySqlSheetStore } from "../../src/tui/sql-sheet-store";
 import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -50,7 +51,7 @@ test("Ctrl+Enter consume evento, captura buffer y evita duplicados; vacío y ter
   const calls: string[] = [];
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connect={async () => ({
           close: async () => {},
           execute: async (sql) => {
@@ -100,7 +101,7 @@ test("conexión pendiente, fallo seguro y reconexión no ejecutan automáticamen
   let calls = 0;
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connect={async () => {
           attempts++;
           if (attempts === 1) return pending.promise;
@@ -143,7 +144,7 @@ test("error SQL elimina filas anteriores y permite corregir sin reconectar", asy
   let connections = 0;
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connect={async () => {
           connections++;
           return {
@@ -172,7 +173,7 @@ test("error SQL elimina filas anteriores y permite corregir sin reconectar", asy
 test("conexión fallida ofrece reconectar y no filtra excepciones", async () => {
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connect={async () => {
           throw new Error("password=secret");
         }}
@@ -302,7 +303,7 @@ test("recorrido completo con SQLite temporal: ejecutar, corregir, vacío, resize
   let connection: Awaited<ReturnType<typeof connectDbHub>> | undefined;
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connect={async () => {
           connection = await connectDbHub({ dsn: sqliteDsn(path) });
           return createQuerySession(connection);

@@ -1,3 +1,4 @@
+import { memorySqlSheetStore } from "../../src/tui/sql-sheet-store";
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import type { Renderable } from "@opentui/core";
@@ -7,7 +8,7 @@ const dockerTest = process.env.TML_DB_TEST_DOCKER === "1" ? test : test.skip;
 dockerTest(
   "TUI real: cambiar entre PostgreSQL y MySQL, cargar tablas y consultar",
   async () => {
-    const view = await testRender(() => <App />, { width: 120, height: 40, useMouse: true });
+    const view = await testRender(() => <App sheetStore={memorySqlSheetStore()} />, { width: 120, height: 40, useMouse: true });
     async function waitFor(text: string) {
       const deadline = Date.now() + 10_000;
       while (Date.now() < deadline) {

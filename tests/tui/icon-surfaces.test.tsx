@@ -1,3 +1,4 @@
+import { memorySqlSheetStore } from "../../src/tui/sql-sheet-store";
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import type { Renderable } from "@opentui/core";
@@ -41,7 +42,7 @@ for (const mode of ["unicode", "nerd-font", "ascii"] as const) {
       };
       const view = await testRender(
         () => (
-          <App
+          <App sheetStore={memorySqlSheetStore()}
             connections={manager}
             connect={async () => ({
               writeEnabled: true,

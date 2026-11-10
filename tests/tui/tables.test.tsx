@@ -1,3 +1,4 @@
+import { memorySqlSheetStore } from "../../src/tui/sql-sheet-store";
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/solid";
 import { icons } from "../../src/tui/icons";
@@ -65,7 +66,7 @@ test("error de metadatos no filtra secretos y permite reintentar; timeout exige 
 test("sidebar muestra tablas debajo de la conexión, esquemas, scroll y catálogo parcial", async () => {
   const view = await testRender(
     () => (
-      <App
+      <App sheetStore={memorySqlSheetStore()}
         connections={{
           list: async () => ({ active: "test", connections: [{ name: "test", kind: "demo" }] }),
           save: async () => {},
